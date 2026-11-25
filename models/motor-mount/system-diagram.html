@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hotelbot · Systems diagram</title>
+<style>
+:root{--paper:#f5f4ef;--panel:#fcfbf7;--ink:#233137;--muted:#5a686c;--line:#cbd0cb;--blue:#365f8d;--teal:#287567;--orange:#ab652f;--red:#ae4242}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}header{padding:22px 30px 18px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}.eyebrow{font-size:11px;letter-spacing:.17em;text-transform:uppercase;color:var(--muted)}h1{font-size:27px;letter-spacing:-.03em;margin:2px 0 0;font-weight:600}header p{margin:5px 0 0;color:var(--muted);font-size:13px}header a{font-size:12px;color:var(--blue);white-space:nowrap;text-underline-offset:3px}.tabs{display:flex;gap:5px;padding:14px 24px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}.tabs button{font:inherit;font-size:13px;padding:8px 15px;background:transparent;color:var(--ink);border:1px solid transparent;border-radius:4px;cursor:pointer}.tabs button[aria-selected=true]{background:var(--ink);color:var(--panel)}button:focus-visible,a:focus-visible{outline:3px solid #bb8c50;outline-offset:3px}main{display:grid;grid-template-columns:minmax(0,1fr) 285px;min-height:calc(100vh - 184px)}.drawing{min-width:0;padding:20px 24px 18px}.diagram-scroll{overflow-x:auto}svg{display:block;width:100%;min-width:850px;height:auto;max-height:calc(100vh - 260px);min-height:510px}svg text{font-family:inherit;fill:var(--ink)}svg .node rect{fill:var(--panel);stroke:var(--line);stroke-width:1.5}svg .node{cursor:pointer}svg .node.selected rect{stroke:var(--blue);stroke-width:2.5;fill:#edf2f6}svg .node:hover rect{stroke:#8f9e9f}svg .node.optional rect{stroke-dasharray:6 5;fill:#f0f0e9}svg .node .title{font-size:23px;font-weight:600}svg .node .sub{font-size:18px;fill:var(--muted)}svg .node .tag{font-size:12px;letter-spacing:1.1px;fill:var(--muted)}svg .wire{fill:none;stroke-width:2.4;stroke-linejoin:round;stroke-linecap:round}svg .control{stroke:var(--blue)}svg .feedback{stroke:var(--teal)}svg .power{stroke:var(--orange)}svg .stop{stroke:var(--red)}svg .neutral{stroke:#738186}svg .optional-wire{stroke-dasharray:6 5}svg .edge-label{font-size:17px;fill:var(--muted);paint-order:stroke;stroke:var(--paper);stroke-width:6px;stroke-linejoin:round}svg .small-label{font-size:14px}svg .note-text{font-size:17px;fill:var(--muted)}.legend{display:flex;gap:18px;flex-wrap:wrap;padding:9px 0 0;font-size:12px;color:var(--muted)}.legend span{display:flex;align-items:center;gap:7px}.legend i{display:inline-block;width:20px;height:2px;background:var(--blue)}.legend .feedback-key{background:var(--teal)}.legend .power-key{background:var(--orange)}.legend .stop-key{background:var(--red)}aside{border-left:1px solid var(--line);padding:26px 22px;background:var(--panel)}aside h2{font-size:19px;line-height:1.35;letter-spacing:-.02em;margin:7px 0 13px;font-weight:600}aside p{font-size:13px;color:var(--muted);margin:0 0 16px}.selected-detail{min-height:215px}.fact{border-top:1px solid var(--line);padding-top:16px;margin-top:18px}.fact strong{font-size:13px;font-weight:600;display:block;margin-bottom:5px}.fact p{font-size:12px;margin:0}.caption{margin:9px 0 0;font-size:12px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:1050px){main{display:block}aside{border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:24px}.selected-detail{min-height:0}.fact{margin:0;border:0;padding:0}svg{max-height:none;min-height:0}.drawing{padding:14px}.diagram-scroll{padding-bottom:8px}}@media(max-width:620px){header{padding:18px;align-items:flex-start}header a{max-width:105px;white-space:normal}h1{font-size:23px}.tabs{padding:10px}.tabs button{padding:8px 11px;font-size:12px}aside{display:block;padding:22px}.fact{margin-top:20px;border-top:1px solid var(--line);padding-top:15px}.legend{gap:10px}}
+</style>
+</head>
+<body>
+<header><div><div class="eyebrow">Hotel delivery robot / hackathon prototype</div><h1>Pi plans. ESP32 drives.</h1><p>One USB serial link carries both wheel-speed and wheel-position commands.</p></div><div><a href="full-wiring.html">Full wiring schematic ↗</a><br><a href="motor-mount-3d.html">Motor-mount CAD ↗</a></div></header>
+<nav class="tabs" role="tablist" aria-label="Systems diagram views">
+<button id="tab-control" role="tab" aria-selected="true" aria-controls="panel-control">Control &amp; data</button>
+<button id="tab-power" role="tab" aria-selected="false" aria-controls="panel-power">Power</button>
+<button id="tab-loop" role="tab" aria-selected="false" aria-controls="panel-loop">Wheel control loops</button>
+</nav>
+<main><section class="drawing">
+<div id="diagrams"></div>
+<div class="legend"><span><i></i>Commands / data</span><span><i class="feedback-key"></i>Measured feedback</span><span><i class="power-key"></i>Power</span><span><i class="stop-key"></i>Contact input</span></div>
+<p class="caption" id="caption">Select a component for details. Optional devices have dashed outlines.</p>
+</section><aside><div class="selected-detail" aria-live="polite"><div class="eyebrow" id="detail-category">Selected component</div><h2 id="detail-title"></h2><p id="detail-body"></p></div><div class="fact"><strong>Proposed USB serial interface</strong><p><code>set_wheel_speeds(left_deg_s, right_deg_s)</code> streams targets for navigation. <code>move_wheels(left_deg, right_deg, max_deg_s)</code> starts one paired relative move for a nudge or calibration.</p></div><div class="fact"><strong>Turn geometry</strong><p>Equal and opposite wheel motion pivots about the drive axle midpoint. The Pi plans the maneuver and checks clearance for the full chassis, including the front overhang.</p></div><div class="fact"><strong>Firmware status</strong><p>These USB motion commands are proposed for the ESP32-S3-Zero. The current drive-controller firmware serves a Wi-Fi interface.</p></div></aside></main>
+<script>
+const details={
+ lidar:['PERCEPTION','360° lidar','USB lidar feeds /scan to ROS 2. SLAM Toolbox creates a separate map for each floor during setup; AMCL uses the saved floor map during deliveries. Keep the scan plane unobstructed.'],
+ pi:['HIGH-LEVEL COMPUTER','Raspberry Pi 4B','Runs ROS 2 / Nav2, lidar localization, speech and the elevator workflow. Uses the drive axle and chassis geometry to plan motions and check clearance. Streams wheel speeds for navigation and can send paired relative wheel angles for a nudge. The serial bridge owns the USB port and uses signed Hall counts for odometry.'],
+ audio:['HUMAN INTERACTION','Microphone & speaker','USB microphone provides speech input. A USB-powered amplified speaker can take audio from the Pi headphone jack. Use Vosk for recognition and Piper for speech, with explicit confirmation of floor requests. Early elevator operation remains supervised.'],
+ altimeter:['OPTIONAL SENSOR','Barometric altimeter','A BMP390-class sensor over a 3.3 V-compatible I²C connection can estimate height changes. Calibrate at a known floor before a ride; pressure disturbances mean an altitude estimate is not proof of the destination floor or safe door clearance.'],
+ coral:['OPTIONAL RECOGNITION','Coral + camera','Optional camera-recognition subsystem. An Edge TPU accelerates supported quantized neural networks; it is not the main SLAM processor. Exact wiring and runtime depend on whether your Coral is a USB accelerator or a standalone Dev Board. Not needed for the lidar navigation path.'],
+ bumpers:['OPTIONAL CONTACT INPUTS','Bumper switches','Optional for this hackathon architecture. If fitted, route contact inputs to the ESP32 through suitable 3.3 V-compatible conditioning. They request a stop in software.'],
+ esp:['LOCAL MOTOR CONTROL','ESP32','The Waveshare ESP32-S3-Zero uses one USB serial session. In speed mode it tracks the latest pair of speed targets. In position mode it latches both relative wheel angles and coordinates the two speed profiles. Both modes use one PI speed loop per wheel. A link timeout or fault commands zero throttle. The ESP32 stops a wheel before changing its direction output.'],
+ leftdriver:['LEFT POWER DRIVER','Left ZS-X11H V2','Drives the three left motor phases and receives the full Hall harness. Fit the external PWM jumper and use the dedicated throttle input. The Rotation terminal is driven through the ground-switch interface shown in the full wiring schematic.'],
+ rightdriver:['RIGHT POWER DRIVER','Right ZS-X11H V2','Drives the three right motor phases and receives the full Hall harness. Has its own throttle and Rotation inputs. Check the forward polarity on each side with the wheels lifted.'],
+ leftmotor:['LEFT ACTUATOR','Left hoverboard motor','Three phase leads and the full Hall harness go to the left driver. Tap HA, HB and HC through the 3.3 V buffer so the ESP32 can count signed transitions.'],
+ rightmotor:['RIGHT ACTUATOR','Right hoverboard motor','Three phase leads and the full Hall harness go to the right driver. Tap HA, HB and HC through the 3.3 V buffer. Set positive wheel rotation to mean forward travel on both sides.'],
+ hall:['FEEDBACK INTERFACE','Three Hall channels per wheel','Tap HA, HB and HC in parallel with each motor driver. The driver still powers its Hall harness. Use one 3.3 V buffer per wheel as shown in the wiring schematic. Decode the order of valid Hall states to measure rotation and direction. Calibrate transitions per wheel revolution.'],
+ battery:['ENERGY SOURCE','Existing hoverboard battery','Existing battery pack and BMS, used with its matching charger. The user’s BMS photo does not establish cutoff current, cutoff timing or protection of the new wiring. These ratings remain unverified. Verify full-charge voltage and current capability. Battery and motor current never pass through ESP32 or Pi GPIO.'],
+ isolator:['MANUAL ISOLATION','Main disconnect','A suitably DC-rated master disconnect isolates the system for service. The exact switch and connectors must suit the battery’s full-charge voltage and available current.'],
+ buck:['REGULATED POWER','Battery → regulated 5 V','Use a converter rated above battery full-charge voltage with enough continuous current for the Pi and attached USB devices. The earlier 5 A rating is only a starting selection: measure total load, check voltage drop and validate the USB power budget. Use a suitable Pi power cable.'],
+ pipower:['ELECTRONICS POWER','Pi → ESP32 over USB','Pi receives regulated 5 V. The ESP32 development board is powered through its supported USB input while serial data uses the same cable. Avoid simultaneously feeding its USB rail from a controller’s 5 V output; exact dev-board power arrangements vary.'],
+ driverspower:['MOTOR POWER','Both motor controllers','Battery/BMS output supplies both ZS-X11H boards through the manual disconnect. No added fuse blocks or independent hardware emergency-stop circuit are included in this requested hackathon diagram. BMS protection ratings remain unverified. ESP32 command timeout stops drive through software; it does not disconnect battery power.'],
+ motorspower:['PHASE POWER','Both hoverboard motors','Each motor is powered by its own ZS-X11H through the three phase wires. Motor current stays in the battery/controller/motor circuit; it never passes through Pi or ESP32 GPIO.'],
+ target:['SERIAL COMMAND','Target wheel speed','Speed mode streams signed left/right targets in degrees per second. Position mode accepts one pair of signed relative wheel angles in degrees and a maximum wheel speed in degrees per second. Use a unique ID for each move, report accepted, moving, done, canceled or fault, and suppress repeat IDs. Only one motion mode owns the outputs at a time. Send keepalives during a position move and cancel it on a stop request, fault or link timeout.'],
+ coordinator:['POSITION CONTROL','Paired wheel position move','Convert relative angles to targets using the signed Hall counts at acceptance. Coordinate acceleration and deceleration so both wheels share a planned finish time. Apply a count-based completion tolerance and report a timeout or fault if either wheel fails to reach its target. The minimum reliable move depends on Hall resolution and the motor deadband.'],
+ regulator:['CONTROL SOFTWARE','One PI loop per wheel','Compare target wheel speed with measured speed. Start with derivative disabled, tune proportional gain conservatively, then add integral action. Clamp integral accumulation and output; reset or freeze the integrator on stop and fault. Do not use the same controller state for both wheels.'],
+ pwm:['THROTTLE OUTPUT','Independent PWM duty','Generate two hardware PWM channels with LEDC. Around 2 kHz is a candidate within the pictured input range; validate on the actual board. 3.3 V is within the photo’s 2.5–5 V PWM range. PWM percentage is a throttle request, not a guaranteed percentage of speed.'],
+ speed:['VELOCITY ESTIMATE','Measured rotation speed','Estimate signed wheel speed from valid Hall transitions and their timestamps. Edge timing helps at low speed. A wheel can slip, so Hall counts measure wheel movement while the Pi estimates chassis motion.'],
+ odom:['POSE FEEDBACK','Wheel odometry → Pi','Return signed cumulative counts, measured wheel speeds, a monotonic timestamp, active command ID and status, and faults. Calibrate counts per revolution, loaded wheel circumference and track width. Wheel slip can make the resulting pose estimate drift.']
+};
+const escape=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+function node(id,x,y,w,h,title,lines=[],optional=false){return `<g class="node${optional?' optional':''}" data-id="${id}" role="button" tabindex="0" aria-label="Inspect ${escape(title)}"><title>${escape(title)}</title><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5"/><text class="title" x="${x+20}" y="${y+35}">${escape(title)}</text>${lines.map((l,i)=>`<text class="sub" x="${x+20}" y="${y+64+i*24}">${escape(l)}</text>`).join('')}</g>`;}
+function edge(d,type='control',label='',x=0,y=0,optional=false){return `<path class="wire ${type}${optional?' optional-wire':''}" d="${d}" marker-end="url(#arrow-${type})"/>${label?`<text class="edge-label" x="${x}" y="${y}" text-anchor="middle">${escape(label)}</text>`:''}`;}
+const defs=`<defs>${[['control','#365f8d'],['feedback','#287567'],['power','#ab652f'],['stop','#ae4242'],['neutral','#738186']].map(([k,c])=>`<marker id="arrow-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="${c}"/></marker>`).join('')}</defs>`;
+function svg(body,label){return `<div class="diagram-scroll"><svg viewBox="0 0 1180 780" role="img" aria-label="${label}">${defs}${body}</svg></div>`;}
+
+const control=svg(
+ edge('M270 93H430','control','USB · /scan',350,81)+
+ edge('M900 95H750','control','Audio',825,81)+
+ edge('M270 225H335V175H430','control','I²C',329,212,true)+
+ edge('M900 245H820V175H750','control','Recognition',823,225,true)+
+ edge('M270 335H430','stop','Optional input',350,323,true)+
+ edge('M510 205V320','control','Speed or paired angles',400,267)+
+ edge('M665 320V205','feedback','Counts / speeds / status',778,267)+
+ edge('M430 400H355V447H310','control','PWM + controls*',339,383)+
+ edge('M750 400H825V447H870','control','PWM + controls*',842,383)+
+ edge('M220 510V620','neutral','3 phases',257,571)+
+ edge('M960 510V620','neutral','3 phases',1004,571)+
+ edge('M125 620V510','feedback','Hall A/B/C',73,571)+
+ edge('M1060 620V510','feedback','Hall A/B/C',1110,571)+
+ edge('M310 670H430','feedback','HA/HB/HC',370,654)+
+ edge('M870 670H750','feedback','HA/HB/HC',810,654)+
+ edge('M590 620V500','feedback','Six buffered Hall lines',695,566)+
+ node('lidar',40,45,230,90,'360° lidar',['Hallway geometry'])+
+ node('pi',430,45,320,160,'Raspberry Pi 4B',['Nav2 · lidar · elevator workflow','Axle geometry and clearance','One USB serial bridge'])+
+ node('audio',900,45,240,115,'Mic + speaker',['USB mic · speaker audio','Floor requests / replies'])+
+ node('altimeter',40,185,230,85,'Altimeter',['Height estimate'],true)+
+ node('coral',900,205,240,85,'Coral + camera',['Optional AI recognition'],true)+
+ node('bumpers',40,295,230,80,'Bumper switches',['Optional software stop'],true)+
+ node('esp',430,320,320,180,'ESP32-S3-Zero',['Speed or paired wheel angles','Two PI wheel-speed loops','Signed Hall counts','PWM + direction'])+
+ node('leftdriver',70,400,240,110,'Left ZS-X11H V2',['Power switching','Motor Hall commutation'])+
+ node('rightdriver',870,400,240,110,'Right ZS-X11H V2',['Power switching','Motor Hall commutation'])+
+ node('leftmotor',70,620,240,95,'Left wheel motor',['Axle fixed · hub rotates'])+
+ node('rightmotor',870,620,240,95,'Right wheel motor',['Axle fixed · hub rotates'])+
+ node('hall',430,620,320,95,'Hall buffers',['HA / HB / HC per wheel · 3.3 V'])+
+ '<text class="note-text" x="40" y="748">Both motion commands and all feedback share one USB serial link.</text><text class="note-text" x="40" y="773">* PWM and control interfaces must match the actual controller’s input requirements.</text>',
+ 'Control and data architecture. The Pi sends wheel speeds or paired wheel angles over one USB serial link. The ESP32 drives both motors and reads three buffered Hall signals per wheel.');
+
+const power=svg(
+ edge('M500 110H730','power','Battery output',615,95)+
+ edge('M880 160V220H350V310','power','Electronics branch',500,205)+
+ edge('M880 220V310','power','Motor branch',970,275)+
+ edge('M350 420V580','power','Regulated 5 V',430,520)+
+ edge('M500 627H595','power','USB power + data',551,560)+
+ edge('M880 420V500H1012V580','power','3 phases per motor',996,485)+
+ '<circle cx="880" cy="220" r="4" fill="#ab652f"/>'+
+ node('battery',200,60,300,100,'Battery pack + BMS',['Existing pack / charger'])+
+ node('isolator',730,60,300,100,'Main disconnect',['Manual power isolation'])+
+ node('buck',200,310,300,110,'DC–DC converter',['Battery → regulated 5 V','Size for Pi + USB load'])+
+ node('driverspower',730,310,300,110,'Motor controllers',['Two ZS-X11H boards','Battery/BMS output supply'])+
+ node('pipower',200,580,300,95,'Pi 4B + USB devices',['Regulated electronics supply'])+
+ node('pipower',595,580,220,95,'ESP32 USB',['Dev-board power'])+
+ node('motorspower',875,580,275,95,'Hoverboard motors',['One controller per motor'])+
+ '<text class="note-text" x="35" y="722">Battery/BMS cutoff specifications are unverified.</text><text class="note-text" x="35" y="748">Common signal ground for non-isolated interfaces. No independent hardware emergency stop.</text>',
+ 'Requested hackathon power architecture: battery and BMS output splits after the manual disconnect into electronics and motor-controller branches, without added fuse blocks. BMS cutoff specifications remain unverified. Pi supplies ESP32 through USB.');
+
+const loop=svg(
+ edge('M290 87H365V183H435','control','Wheel speeds',351,71)+
+ edge('M290 121H330V322H370','control','Wheel angles',260,264)+
+ edge('M545 278V238','control')+
+ edge('M655 183H755','control','Duty',705,166)+
+ edge('M915 183H1010V278','control','PWM + direction',1002,165)+
+ edge('M975 374V460','neutral','Motor phases',910,414)+
+ edge('M1040 460V374','feedback','Hall harness',1100,439)+
+ edge('M855 506H730','feedback','HA/HB/HC',790,489)+
+ edge('M545 460V388','feedback','Signed counts',621,431)+
+ edge('M480 460H350V219H435','feedback','Measured speed',268,431)+
+ edge('M500 570V619H380','feedback','Counts + speed',464,604)+
+ node('target',30,45,260,105,'Pi USB commands',['Speed or position mode'])+
+ node('regulator',435,138,220,100,'PI speed loops',['Left and right wheel'])+
+ node('pwm',755,138,160,100,'PWM output',['Per wheel'])+
+ node('coordinator',370,278,345,110,'Pair wheel positions',['Shared finish time','Slow down near the targets'])+
+ node('leftdriver',885,278,250,96,'ZS-X11H V2',['One driver per wheel'])+
+ node('leftmotor',855,460,280,110,'Wheel motor',['Three Hall channels'])+
+ node('speed',455,460,275,110,'Hall feedback',['Buffered signals','Signed counts and speed'])+
+ node('odom',30,572,350,100,'Feedback to Pi',['Counts · speeds · move status'])+
+ '<text class="note-text" x="35" y="722">Position moves are relative to the signed counts at acceptance. Each wheel uses the same speed loop in either mode.</text><text class="note-text" x="35" y="748">A fault, cancel request or expired link timeout commands zero throttle.</text>',
+ 'Wheel control loops. Speed commands feed the PI loops directly. Position moves generate coordinated speed targets using signed Hall counts. Counts and speeds return to the Pi.');
+const views={control,power,loop};
+const defaults={control:'esp',power:'driverspower',loop:'regulator'};
+document.querySelector('#diagrams').innerHTML=Object.entries(views).map(([name,diagram])=>`<div id="panel-${name}" role="tabpanel" aria-labelledby="tab-${name}" ${name!=='control'?'hidden':''}>${diagram}</div>`).join('');
+// Give each SVG its own marker ids so only the active panel controls its definitions.
+document.querySelectorAll('[role=tabpanel]').forEach(panel=>{const suffix=panel.id;panel.querySelectorAll('marker').forEach(m=>m.id+='-'+suffix);panel.querySelectorAll('[marker-end]').forEach(p=>p.setAttribute('marker-end',p.getAttribute('marker-end').replace(')',`-${suffix})`)));});
+function select(id){document.querySelectorAll('.node').forEach(n=>n.classList.toggle('selected',n.dataset.id===id));const [cat,title,body]=details[id];document.querySelector('#detail-category').textContent=cat;document.querySelector('#detail-title').textContent=title;document.querySelector('#detail-body').textContent=body;}
+document.querySelectorAll('.node').forEach(n=>{n.addEventListener('click',()=>select(n.dataset.id));n.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(n.dataset.id);}});});
+const tabs=[...document.querySelectorAll('[role=tab]')];
+function show(name){tabs.forEach(t=>{const active=t.id==='tab-'+name;t.setAttribute('aria-selected',String(active));t.tabIndex=active?0:-1;document.getElementById(t.getAttribute('aria-controls')).hidden=!active;});select(defaults[name]);history.replaceState(null,'','#'+name);}
+tabs.forEach((t,i)=>{t.addEventListener('click',()=>show(t.id.slice(4)));t.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length;tabs[next].focus();show(tabs[next].id.slice(4));}});});
+show(Object.hasOwn(views,location.hash.slice(1))?location.hash.slice(1):'control');
+</script>
+</body>
+</html>

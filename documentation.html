@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HotelBot documentation</title>
+  <style>
+    html { color-scheme: light; background: #f5f4ef; color: #233137; }
+    body { max-width: 46rem; margin: 0 auto; padding: 3rem 1.25rem; font: 1rem/1.55 system-ui, sans-serif; }
+    h1 { margin: 0 0 .35rem; font-size: clamp(2rem, 6vw, 2.8rem); letter-spacing: -.04em; }
+    header p { margin: 0; color: #526067; }
+    section { margin-top: 2rem; }
+    h2 { margin: 0; padding-bottom: .4rem; border-bottom: 1px solid #cbd0cb; font-size: 1.125rem; }
+    ul { margin: .65rem 0 0; padding-left: 1.2rem; }
+    li { margin: .55rem 0; }
+    a { color: #285984; font-weight: 600; text-underline-offset: .16em; }
+    a:focus-visible { outline: 2px solid #285984; outline-offset: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HotelBot documentation</h1>
+    <p>Wiring diagrams, firmware guides, bench tools and motor-mount CAD.</p>
+  </header>
+  <main>
+    <section aria-labelledby="architecture">
+      <h2 id="architecture">System and Waveshare ESP32-S3-Zero</h2>
+      <ul>
+        <li><a href="models/motor-mount/system-diagram.html">System diagram</a> — Pi, ESP32, power and the proposed USB control interface.</li>
+        <li><a href="models/motor-mount/full-wiring.html">Full wiring schematic</a> — battery, both motors, all six Hall taps, connector pinouts and Pi peripherals.</li>
+        <li><a href="models/motor-mount/wiring-guide.html">Waveshare wiring and setup guide</a> — GPIO assignments, signal circuits and bench checks.</li>
+      </ul>
+    </section>
+    <section aria-labelledby="firmware">
+      <h2 id="firmware">ESP32 DevKit V1 and bench tools</h2>
+      <ul>
+        <li><a href="models/motor-mount/devkit-v1-wiring.html">DevKit V1 wiring and PID tuning</a> — pinout for the classic 30-pin ESP32 board.</li>
+        <li><a href="firmware/drive-controller/README.md">Drive-controller firmware guide</a> — Wi-Fi joystick, Hall calibration, PID tuning and USB bench program.</li>
+        <li><a href="firmware/motor-sweep/README.md">Motor sweep guide</a> — single-wheel PWM test for the ESP32-S3-Zero and classic ESP32.</li>
+        <li><a href="tools/pin-plotter/README.md">ESP32 pin plotter guide</a> — monitor GPIO signals over USB serial.</li>
+      </ul>
+    </section>
+    <section aria-labelledby="mechanical">
+      <h2 id="mechanical">Motor mount</h2>
+      <ul>
+        <li><a href="models/motor-mount/motor-mount-3d.html">Interactive motor-mount CAD</a> — inspect the axle clamp and mounting plate.</li>
+        <li><a href="models/motor-mount/README.md">Motor-mount design notes</a> — measurements, fastener layout and model rebuild instructions.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

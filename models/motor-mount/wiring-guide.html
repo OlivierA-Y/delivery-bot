@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hotelbot wiring guide</title>
+<style>
+:root{color-scheme:light;--ink:#243337;--muted:#506361;--paper:#f5f4ef;--white:#fffefa;--line:#d4dbd4;--accent:#226257}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,sans-serif}header,main{max-width:1120px;margin:auto;padding:24px clamp(16px,4vw,44px)}header{padding-top:40px}h1{font-size:clamp(30px,5vw,48px);line-height:1.1;letter-spacing:-.04em;margin:0}h2{font-size:24px;margin:0 0 10px}h3{font-size:17px;margin:18px 0 6px}p{margin:0 0 12px}header p{margin:10px 0 16px;color:var(--muted)}a{color:var(--accent);text-underline-offset:3px}nav{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px}main{padding-top:0}section{background:var(--white);border:1px solid var(--line);padding:clamp(14px,3vw,26px);margin:0 0 16px;border-radius:7px;scroll-margin:16px}.chain{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 0 18px}.chain strong{padding:7px 10px;background:#e6f0ea;border-radius:4px}.chain span{color:var(--muted);font-size:14px}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:470px;font-size:15px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:9px 10px}th{color:var(--muted);font-weight:550}code{background:#ebefea;padding:1px 5px;border-radius:3px}ol,ul{padding-left:22px;margin:8px 0 12px}li+li{margin-top:6px}.note{border-left:3px solid #a96c37;background:#faf0df;padding:10px 14px;margin:14px 0;color:#553b23}pre{overflow-x:auto;background:#ebefea;padding:10px 14px;border-radius:4px}pre code{padding:0}details{margin:12px 0}summary{cursor:pointer;color:var(--accent);font-weight:600}small{color:var(--muted)}@media print{body{background:white}header,main{padding:12px}section{break-inside:avoid}nav{display:none}}
+.wiring-figure{margin:0}.wiring-scroll{overflow-x:auto}.wiring-figure svg{display:block;width:100%;min-width:760px;height:auto}.wiring-figure figcaption{margin-top:10px;color:var(--muted);font-size:14px}.wiring-figure .board{fill:#fffefa;stroke:#a8b7ae;stroke-width:1.5}.wiring-figure .esp{fill:#e6f0ea;stroke:#6d9686}.wiring-figure .title{font-size:19px;font-weight:700}.wiring-figure .pin{font:15px ui-monospace,monospace}.wiring-figure .label{font-size:14px}.wiring-figure .device{font-size:16px;font-weight:650}.wiring-figure .wire{fill:none;stroke-width:2.5;stroke-linejoin:round}.wiring-figure .usb{stroke:#365f8d}.wiring-figure .pwm{stroke:#226257}.wiring-figure .dir{stroke:#a2602e}.wiring-figure .hall{stroke:#66538b}.wiring-figure .ground{stroke:#526260;stroke-dasharray:5 4}.wiring-figure .interface{fill:#f5f4ef;stroke:#a8b7ae}.wiring-figure svg text{fill:var(--ink)}@media print{.wiring-figure svg{min-width:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hotelbot wiring guide</h1>
+  <p>Raspberry Pi 4B · Waveshare ESP32-S3-Zero · two ZS-X11H V2 boards</p>
+  <nav aria-label="Guide sections"><a href="full-wiring.html">Full wiring schematic</a><a href="#diagram">Wiring diagram</a><a href="#drive">Motor signals</a><a href="#power">Power and motors</a><a href="#pi">Pi peripherals</a><a href="#test">First power-up</a><a href="system-diagram.html">Systems diagram</a></nav>
+</header>
+<main>
+<section id="diagram">
+  <h2>Motor wiring diagram</h2>
+  <figure class="wiring-figure">
+    <div class="wiring-scroll" tabindex="0" aria-label="Scrollable motor wiring diagram">
+      <svg viewBox="0 0 1000 535" role="img" aria-labelledby="wire-title wire-description">
+        <title id="wire-title">Pi, ESP32-S3-Zero and both ZS-X11H V2 drivers</title>
+        <desc id="wire-description">USB connects the Pi and ESP32. Left PWM and direction use GPIO4 and 6, and Hall A/B/C use GPIO8, 10 and 11. Right PWM and direction use GPIO5 and 7, and Hall A/B/C use GPIO9, 12 and 13. Each three-channel buffer taps the motor Hall harness while the driver remains connected. Both drivers share signal ground and connect to their own motor phase and Hall harnesses.</desc>
+        <defs>
+          <marker id="pwm-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#226257"/></marker>
+          <marker id="dir-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#a2602e"/></marker>
+          <marker id="hall-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="#66538b"/></marker>
+        </defs>
+        <rect class="board" x="375" y="12" width="250" height="57" rx="6"/>
+        <text class="title" x="500" y="46" text-anchor="middle">Raspberry Pi 4B · USB-A</text>
+        <path class="wire usb" d="M500 69V143"/>
+        <text class="label" x="512" y="106">USB data + 5 V</text>
+        <rect class="board esp" x="375" y="143" width="250" height="254" rx="6"/>
+        <text class="title" x="500" y="174" text-anchor="middle">ESP32-S3-Zero</text>
+        <text class="label" x="500" y="195" text-anchor="middle">USB-C</text>
+        <rect class="board" x="12" y="160" width="188" height="237" rx="6"/>
+        <rect class="board" x="800" y="160" width="188" height="237" rx="6"/>
+        <text class="device" x="27" y="189">Left ZS-X11H V2</text>
+        <text class="device" x="815" y="189">Right ZS-X11H V2</text>
+
+        <path class="wire pwm" d="M375 226H201" marker-end="url(#pwm-arrow)"/>
+        <path class="wire pwm" d="M625 226H799" marker-end="url(#pwm-arrow)"/>
+        <path class="wire dir" d="M375 273H201" marker-end="url(#dir-arrow)"/>
+        <path class="wire dir" d="M625 273H799" marker-end="url(#dir-arrow)"/>
+        <g class="wire hall" marker-end="url(#hall-arrow)">
+          <path d="M200 312H374"/><path d="M200 335H374"/><path d="M200 358H374"/>
+          <path d="M800 312H626"/><path d="M800 335H626"/><path d="M800 358H626"/>
+        </g>
+        <path class="wire ground" d="M200 382H375M625 382H800"/>
+        <text class="label" x="287" y="216" text-anchor="middle">3.3 V PWM</text>
+        <text class="label" x="713" y="216" text-anchor="middle">3.3 V PWM</text>
+        <g text-anchor="middle" class="label">
+          <rect class="interface" x="228" y="259" width="119" height="28" rx="4"/><text x="287" y="278">Ground switch</text>
+          <rect class="interface" x="653" y="259" width="119" height="28" rx="4"/><text x="713" y="278">Ground switch</text>
+          <rect class="interface" x="220" y="295" width="135" height="71" rx="4"/>
+          <rect class="interface" x="645" y="295" width="135" height="71" rx="4"/>
+          <path class="wire hall" d="M220 312H355M220 335H355M220 358H355M645 312H780M645 335H780M645 358H780" opacity=".35"/>
+          <text x="287" y="330">3.3 V buffer</text><text x="287" y="351">3 channels</text>
+          <text x="713" y="330">3.3 V buffer</text><text x="713" y="351">3 channels</text>
+        </g>
+        <g class="pin">
+          <text x="387" y="231">GPIO4</text><text x="613" y="231" text-anchor="end">GPIO5</text>
+          <text x="387" y="278">GPIO6</text><text x="613" y="278" text-anchor="end">GPIO7</text>
+          <text x="387" y="317">GPIO8</text><text x="613" y="317" text-anchor="end">GPIO9</text>
+          <text x="387" y="340">GPIO10</text><text x="613" y="340" text-anchor="end">GPIO12</text>
+          <text x="387" y="363">GPIO11</text><text x="613" y="363" text-anchor="end">GPIO13</text>
+          <text x="387" y="387">GND</text><text x="613" y="387" text-anchor="end">GND</text>
+        </g>
+        <g class="label">
+          <text x="27" y="231">PWM throttle</text><text x="815" y="231">PWM throttle</text>
+          <text x="27" y="278">Rotation</text><text x="815" y="278">Rotation</text>
+          <text x="27" y="317">HA · harness tap</text><text x="815" y="317">HA · harness tap</text>
+          <text x="27" y="340">HB · harness tap</text><text x="815" y="340">HB · harness tap</text>
+          <text x="27" y="363">HC · harness tap</text><text x="815" y="363">HC · harness tap</text>
+          <text x="27" y="387">Signal GND</text><text x="815" y="387">Signal GND</text>
+        </g>
+        <path class="wire dir" d="M86 397V462M914 397V462"/>
+        <path class="wire hall" d="M106 397V462M894 397V462"/>
+        <text class="label" x="120" y="428">MA / MB / MC</text><text class="label" x="120" y="450">Hall harness</text>
+        <text class="label" x="880" y="428" text-anchor="end">MA / MB / MC</text><text class="label" x="880" y="450" text-anchor="end">Hall harness</text>
+        <rect class="board" x="12" y="462" width="188" height="54" rx="6"/>
+        <rect class="board" x="800" y="462" width="188" height="54" rx="6"/>
+        <text class="device" x="106" y="495" text-anchor="middle">Left wheel motor</text>
+        <text class="device" x="894" y="495" text-anchor="middle">Right wheel motor</text>
+        <text class="label" x="500" y="473" text-anchor="middle">Motor power uses a separate battery branch.</text>
+        <text class="label" x="500" y="496" text-anchor="middle">See “Power and motors” below.</text>
+      </svg>
+    </div>
+    <figcaption>Fit the external PWM jumper on both drivers. Leave each motor’s Hall harness connected to its driver and branch only HA, HB and HC into the buffer. Speed pulse Out is unused.</figcaption>
+  </figure>
+</section>
+<section id="drive">
+  <h2>Wire the ESP32 and motor drivers</h2>
+  <div class="chain"><strong>Pi USB-A</strong><span>→ USB data cable →</span><strong>ESP32 USB-C</strong><span>↔ PWM, direction and Hall feedback ↔</span><strong>Two ZS-X11H V2s</strong></div>
+  <p>The ESP32 pin numbers below are GPIO numbers. Look for pads marked <b>4–9</b> on the Waveshare board. If yours came without headers, solder headers or terminate the signal wires in a small carrier first.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Wire</th><th>Left</th><th>Right</th><th>Connection on each ZS-X11H V2</th></tr></thead>
+    <tbody>
+      <tr><td>PWM throttle</td><td><code>GPIO4</code></td><td><code>GPIO5</code></td><td>ESP32 → <b>PWM throttle</b> on the bottom five-pin connector. Fit the external PWM jumper shown in your photo.</td></tr>
+      <tr><td>Direction</td><td><code>GPIO6</code></td><td><code>GPIO7</code></td><td>ESP32 → ground-switch interface → <b>Rotation</b> on the right screw terminal.</td></tr>
+      <tr><td>Hall A</td><td><code>GPIO8</code></td><td><code>GPIO9</code></td><td>Branch from <b>HA</b> on each motor’s Hall harness through a 3.3 V buffer.</td></tr>
+      <tr><td>Hall B</td><td><code>GPIO10</code></td><td><code>GPIO12</code></td><td>Branch from <b>HB</b> through a second buffer channel.</td></tr>
+      <tr><td>Hall C</td><td><code>GPIO11</code></td><td><code>GPIO13</code></td><td>Branch from <b>HC</b> through a third buffer channel.</td></tr>
+      <tr><td>Signal reference</td><td colspan="2"><code>GND</code></td><td>Connect to signal <b>GND</b> on both controllers. Run motor return current through the main battery cables.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Check connector orientation against the photo with the board facing you. The bottom five-pin connector is <b>GND · Speed pulse Out · 5 V out · PWM throttle · GND</b> from left to right in that view. The separate <b>0–5 V Speed</b> screw terminal is the analog input.</p>
+  <details open><summary>PWM and direction interfaces</summary>
+    <p>The pictured PWM input specifies 2.5–5 V. Start with 3.3 V hardware PWM at about <b>2 kHz</b>, after confirming the input has no pull-up above 3.3 V. Set the onboard speed pot to minimum and verify zero duty with the wheels raised. Start with a 10 kΩ pull-down at each PWM input and verify that it actually holds zero drive when the ESP32 is off or resetting. If the controller overrides that bias, use a suitable interface with a verified default-off state before proceeding.</p>
+    <p>For each <b>Rotation</b> terminal, the diagram shows a switch to ground. A small NPN transistor such as a 2N3904 can act as that switch. Connect <b>emitter → common GND</b>, <b>collector → Rotation</b>, and <b>ESP GPIO → 4.7 kΩ → base</b>. Add <b>100 kΩ from base to emitter</b> to keep it off during reset. Check the transistor’s actual pin order. GPIO high closes the ground switch. Test which wheel direction each state produces and switch only after the wheel stops. Leave Brake and Stop unwired for this bench setup.</p>
+  </details>
+  <details open><summary>Hall signal levels and direction</summary>
+    <p>Measure all three Hall signals relative to controller signal ground with the harness connected and the wheel turned by hand. For 5 V signals within the buffer’s ratings, use one <b>SN74LVC3G17</b> per wheel. Power each buffer from ESP32 <b>3V3</b>, share signal ground, and place a 100 nF bypass capacitor across each buffer supply. Connect HA/HB/HC to the buffer inputs and its outputs to the assigned GPIOs. Configure those GPIOs as inputs. The drivers supply their own Hall harnesses. Keep the Hall 5 V wires off the ESP32 supply.</p>
+    <p>Decode the order of valid three-bit Hall transitions to count rotation in both directions. With drive disabled, mark each wheel and turn it through several full revolutions. Use the measured transitions per revolution, and set each wheel’s sign so rolling the robot forward gives positive counts on both sides.</p>
+  </details>
+</section>
+<section id="power">
+  <h2>Power and motor harnesses</h2>
+  <ul>
+    <li>On each controller, connect the battery distribution branch to <b>VCC and power GND</b> with the polarity verified. Verify the pack’s full-charge voltage against the controller and converter ratings. This prototype layout uses the existing battery/BMS path. Its cutoff ratings and protection of the new wiring remain unverified.</li>
+    <li>Use a separate branch for the DC–DC converter input. Power the Pi through USB-C with a regulated <b>5 V supply capable of 3 A</b>. Check the output and polarity before connecting the Pi. A normal Pi wall supply is convenient for initial bench tests.</li>
+    <li>Feed the ESP32 from the Pi’s USB data cable. Leave the ESP32’s <b>5V</b> pad and the controllers’ external <b>5 V out</b> leads disconnected from that supply.</li>
+    <li>Connect each motor’s three thick phase leads to its own controller’s <b>MA/MB/MC</b>. Connect its Hall harness to the separate controller header marked <b>GND, HA, HB, HC, 5 V</b>. Match phase and Hall order using the motor and controller pinouts. Wire colours are only clues. Branch HA/HB/HC to the ESP32 buffers as shown above.</li>
+  </ul>
+</section>
+<section id="pi">
+  <h2>Connect the Pi peripherals</h2>
+  <p>Connect the lidar via its USB adapter, the microphone via USB, and the powered speaker via the Pi’s 3.5 mm audio jack if using the previously discussed speaker. Use a data-capable USB cable for the ESP32.</p>
+  <p>For the optional BMP390 with a Qwiic/STEMMA QT socket, use a <b>4-pin JST-SH to female DuPont cable</b>. The sockets go directly on the Pi header.</p>
+  <div class="table-wrap"><table><thead><tr><th>BMP390 signal</th><th>Pi 4B physical pin</th></tr></thead><tbody>
+    <tr><td>3.3 V</td><td>1</td></tr><tr><td>SDA</td><td>3 (GPIO2)</td></tr><tr><td>SCL</td><td>5 (GPIO3)</td></tr><tr><td>GND</td><td>6</td></tr>
+  </tbody></table></div>
+  <p>With I²C enabled on the Pi, use <code>sudo i2cdetect -y 1</code> for a first check if <code>i2c-tools</code> is installed. Expect <code>0x77</code> on the default Adafruit BMP390 or <code>0x76</code> if its address has been changed.</p>
+</section>
+<section id="test">
+  <h2>First power-up</h2>
+  <ol>
+    <li>Leave motor power disconnected. Enable <b>USB CDC On Boot</b> in the ESP32 Arduino configuration and choose <b>Hardware CDC and JTAG</b> when available. Connect Pi USB-A to ESP32 USB-C. The board’s TX/RX pads can stay unused.</li>
+    <li>Check the Pi sees a serial device with <code>ls /dev/ttyACM*</code>. Use newline-delimited JSON. A 115200 setting can be used in the client, but the native USB connection does not run at that UART baud rate.</li>
+    <li>Secure the chassis with wheels clear. Confirm the driver remains stopped with the ESP32 unplugged, powering up and resetting. With drive disabled, verify Hall voltage and signed counts by turning each wheel by hand in both directions. Then test one wheel at low duty. Use a current-limited supply for initial motor tests when available.</li>
+    <li>With the wheels still raised, unplug USB during a low-speed test. Verify the drive output goes to zero. In firmware, default to stopped, stop on stale commands (start with 250 ms), and require a fresh command session after reconnecting.</li>
+  </ol>
+  <p><small>References: <a href="https://docs.waveshare.com/ESP32-S3-Zero#pinout">Waveshare board pinout</a> · <a href="https://docs.espressif.com/projects/arduino-esp32/en/latest/tutorials/cdc_dfu_flash.html">ESP32 native USB</a> · <a href="https://www.ti.com/product/SN74LVC3G17">TI buffer datasheet</a> · <a href="https://www.adafruit.com/product/4397">sensor cable</a> · <a href="https://learn.adafruit.com/adafruit-bmp388-bmp390-bmp3xx/pinouts">BMP390 pinout</a> · <a href="https://datasheets.raspberrypi.com/rpi4/raspberry-pi-4-datasheet.pdf">Pi 4B datasheet</a>. Controller connector labels are taken from your annotated V2 photo.</small></p>
+</section>
+</main>
+</body>
+</html>

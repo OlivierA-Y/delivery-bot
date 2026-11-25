@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f0f1eb">
+<title>HotelBot · DevKit V1 wiring</title>
+<style>
+  :root{color-scheme:light;--paper:#f0f1eb;--ink:#222b25;--muted:#48574e;--line:#b4c1b6;--sheet:#fbfcf7;--accent:#165744;--left:#00645c;--right:#924127;--phase:#326197;--power:#a83230;--ground:#424c53;--usb:#5c5075;font:16px/1.55 system-ui,sans-serif;background:var(--paper);color:var(--ink)}
+  *{box-sizing:border-box}
+  body{margin:0}
+  main{width:min(1120px,100%);margin:auto;padding:clamp(20px,5vw,64px) clamp(16px,4vw,38px)}
+  h1,h2,h3,p,figure{margin:0}
+  h1{max-width:15ch;font-size:clamp(2.4rem,6vw,4.65rem);letter-spacing:-.055em;line-height:1}
+  h2{font-size:clamp(1.55rem,3vw,2.35rem);letter-spacing:-.035em;line-height:1.12}
+  h3{font-size:1.16rem;line-height:1.3}
+  p+ p{margin-top:.65rem}
+  .lede{color:var(--muted);max-width:61ch;margin-top:14px}
+  nav{display:flex;flex-wrap:wrap;gap:8px 20px;margin:22px 0 25px}
+  a{color:#165744;text-underline-offset:3px}
+  a:focus-visible,button:focus-visible,.drawing:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  section{margin-top:42px;scroll-margin-top:14px}
+  .tools{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:13px 0 10px;flex-wrap:wrap}
+  #selection{color:var(--muted);font-size:.94rem}
+  button{font:inherit;color:var(--accent);background:var(--sheet);border:1px solid var(--line);padding:5px 10px;cursor:pointer}
+  button:disabled{opacity:.55;cursor:default}
+  figure{background:var(--sheet);border:1px solid var(--line);margin-top:15px}
+  .drawing{overflow-x:auto;overscroll-behavior-inline:contain}
+  .drawing svg{display:block;width:100%;height:auto;min-width:710px}
+  figcaption{padding:12px 16px;border-top:1px solid var(--line);color:var(--muted)}
+  .key{display:flex;flex-wrap:wrap;gap:5px 20px;margin:12px 0;color:var(--muted);font-size:.94rem}
+  .key span::before{content:"";display:inline-block;width:19px;height:4px;margin:0 7px 3px 0;background:var(--key)}
+  .table-wrap{overflow:auto}
+  table{width:100%;border-collapse:collapse;text-align:left;margin-top:15px;background:var(--sheet)}
+  th,td{padding:8px 12px;border-bottom:1px solid var(--line)}
+  th{font-weight:700}
+  td:first-child{font-weight:620}
+  code{font:0.95em ui-monospace,monospace;white-space:nowrap}
+  .notes{max-width:79ch;margin-top:16px;color:var(--muted)}
+  .notes ul{padding-left:22px;margin:0}
+  li+li{margin-top:.55rem}
+  .guide{margin-top:17px;padding:clamp(14px,3vw,24px);background:var(--sheet)}
+  .guide h3:not(:first-child){margin-top:23px}
+  .guide ol{padding-left:24px;margin:8px 0 0;max-width:78ch}
+  .guide p{max-width:78ch;margin-top:8px}
+  footer{margin-top:40px;color:var(--muted);font-size:.92rem}
+  svg{font-family:system-ui,sans-serif;background:var(--sheet)}
+  svg text{fill:var(--ink);font-size:15px}
+  .s-heading{font-weight:720;font-size:23px;letter-spacing:-.4px}
+  .s-sub{font-weight:720;font-size:16px}
+  .s-small{font-size:13px;fill:var(--muted)}
+  .s-pin{font-size:14px;font-weight:680}
+  .s-invert{fill:#f7faf4}
+  .s-on-board{fill:#e4eee5;font-size:11px;font-weight:650}
+  .s-wire,.s-halo{fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .s-wire{stroke:currentColor;stroke-width:3}
+  .s-halo{stroke:var(--sheet);stroke-width:8}
+  .s-heavy .s-wire{stroke-width:5}
+  .s-heavy .s-halo{stroke-width:10}
+  .s-dot{fill:currentColor;stroke:var(--sheet);stroke-width:1.6}
+  .s-net{cursor:pointer;transition:opacity .15s}
+  .s-net:focus-visible{outline:none}
+  .s-net:hover .s-wire,.s-net:focus-visible .s-wire,.s-net.is-active .s-wire{stroke-width:5}
+  .s-net:hover text,.s-net:focus-visible text,.s-net.is-active text{font-weight:780}
+  .s-net:focus-visible .s-dot{stroke:var(--ink);stroke-width:3}
+  .has-selection .s-net:not(.is-active){opacity:.32}
+  .tone-left{color:var(--left)}
+  .tone-right{color:var(--right)}
+  .tone-phase{color:var(--phase)}
+  .tone-power{color:var(--power)}
+  .tone-ground{color:var(--ground)}
+  .tone-usb{color:var(--usb)}
+  .sheet-line{fill:none;stroke:#ced8ce;stroke-width:1}
+  @media(prefers-reduced-motion:reduce){.s-net{transition:none}}
+  @media print{
+    :root{background:white}
+    main{padding:0;width:100%}
+    nav,.tools{display:none}
+    section{margin-top:24px}
+    figure,.guide ol{break-inside:avoid}
+    .guide h3{break-after:avoid}
+    .drawing{overflow:visible}
+    .drawing svg{min-width:0}
+    .has-selection .s-net:not(.is-active){opacity:1}
+    *{print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>HotelBot wiring</h1>
+    <p class="lede">ESP32 DevKit V1 · 30-pin board, component side up, USB at the bottom. Follow the matching wire labels between the board, the two motor drivers, and the power sheet.</p>
+    <nav aria-label="Diagram sections">
+      <a href="#devkit">ESP32 pins</a><a href="#wheel-wiring">Wheels</a><a href="#interfaces">Signal circuits</a><a href="#power">Power</a><a href="#tuning">PID tuning</a>
+    </nav>
+  </header>
+  <section id="devkit" aria-labelledby="devkit-title">
+    <h2 id="devkit-title">ESP32 connections</h2>
+    <div class="tools">
+      <span id="selection" role="status">Select a wire to highlight its matching ends. Scroll the drawing sideways on a small screen.</span>
+      <button id="clear" type="button" disabled>Clear highlight</button>
+    </div>
+    <figure>
+      <div class="drawing" id="board-sheet" tabindex="0" aria-label="Scrollable ESP32 pin diagram"></div>
+      <figcaption>The right header carries the drive signals. Leave RX0 and TX0 free for USB serial. Hall C is the feedback used by each speed loop. Hall A and B are shown as wired taps.</figcaption>
+    </figure>
+    <div class="key" aria-label="Wire colors">
+      <span style="--key:var(--left)">Left wheel signal</span>
+      <span style="--key:var(--right)">Right wheel signal</span>
+      <span style="--key:var(--phase)">Motor phase</span>
+      <span style="--key:var(--power)">Positive power</span>
+      <span style="--key:var(--ground)">Ground / return</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Signal</th><th scope="col">Left wheel</th><th scope="col">Right wheel</th></tr></thead>
+        <tbody>
+          <tr><td>PWM throttle</td><td>D15 / GPIO15</td><td>RX2 / GPIO16</td></tr>
+          <tr><td>Rotation control</td><td>D4 / GPIO4</td><td>D23 / GPIO23</td></tr>
+          <tr><td>Hall A</td><td>D19 / GPIO19</td><td>TX2 / GPIO17</td></tr>
+          <tr><td>Hall B</td><td>D21 / GPIO21</td><td>D5 / GPIO5</td></tr>
+          <tr><td>Hall C · RPM feedback</td><td>D22 / GPIO22</td><td>D18 / GPIO18</td></tr>
+          <tr><td>Buffer supply / signal ground</td><td colspan="2">ESP32 3V3 powers both buffers. ESP32 GND goes to the common signal ground.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="wheel-wiring" aria-labelledby="wheel-title">
+    <h2 id="wheel-title">Motor drivers and wheel harnesses</h2>
+    <figure>
+      <div class="drawing" id="left-sheet" tabindex="0" aria-label="Scrollable left motor wiring"></div>
+      <figcaption>Fit the external PWM jumper. The left ESP32 direction output is LOW for forward with the configured wiring.</figcaption>
+    </figure>
+    <figure>
+      <div class="drawing" id="right-sheet" tabindex="0" aria-label="Scrollable right motor wiring"></div>
+      <figcaption>Fit the external PWM jumper. The right ESP32 direction output is HIGH for forward with the configured wiring.</figcaption>
+    </figure>
+    <div class="notes">
+      <p>The drawings group terminals by function. Use the terminal labels on your driver to match phases and Hall signals. Wire colors vary by harness.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <caption style="text-align:left;font-weight:700;margin:10px 0 5px">Photographed V2 connector order, component side</caption>
+        <thead><tr><th scope="col">Connector</th><th scope="col">Terminal order</th></tr></thead>
+        <tbody>
+          <tr><td>Left screws · top to bottom</td><td>MA · MB · MC · VCC · Power GND</td></tr>
+          <tr><td>Right screws · top to bottom</td><td>5 V out · Analog speed · Signal GND · Rotation · Brake · Stop</td></tr>
+          <tr><td>Bottom-left PWM · left to right</td><td>GND · Speed Out · 5 V out · PWM · GND</td></tr>
+          <tr><td>Bottom-right Hall · left to right</td><td>GND · HA · HB · HC · 5 V</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="notes">Check the labels and connector orientation on your board. Leave Speed Out, the separate 5 V out pins, Analog speed, Brake and Stop open for this setup.</p>
+  </section>
+
+  <section id="interfaces" aria-labelledby="signals-title">
+    <h2 id="signals-title">Hall buffer and direction circuit</h2>
+    <figure>
+      <div class="drawing" id="buffer-sheet" tabindex="0" aria-label="Scrollable Hall buffer and direction wiring"></div>
+      <figcaption>Build one of each circuit per driver. Verify the Hall levels with the harness powered. The SN74LVC3G17 accepts inputs up to 5.5 V and sends 3.3 V logic to the ESP32 when powered from 3V3.</figcaption>
+    </figure>
+    <div class="notes">
+      <ul>
+        <li>Keep the driver’s Hall 5 V and Hall GND with its motor harness. Branch only HA, HB and HC into the buffer. Place each 100 nF capacitor close to its buffer.</li>
+        <li>Verify the controller’s PWM input accepts a 3.3 V signal and has no pull-up above 3.3 V before connecting it directly. Verify the 10 kΩ pull-down holds the wheel still through ESP32 reset.</li>
+        <li>Move the right Rotation control wire to D23 with motor power off. Leave the old D2 connection unplugged because GPIO2 is sampled during boot. Use the shown ground-switch circuit and verify your transistor’s physical pin order.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="power" aria-labelledby="power-title">
+    <h2 id="power-title">Battery, return and USB</h2>
+    <figure>
+      <div class="drawing" id="power-sheet" tabindex="0" aria-label="Scrollable battery and ground wiring"></div>
+      <figcaption>Motor current returns through the heavy power cables. Tie signal ground to the same battery-negative reference. Feed the DevKit from one USB source and leave VIN open in this arrangement.</figcaption>
+    </figure>
+    <p class="notes">Verify the battery’s full-charge voltage and the power protection against the ratings of the installed controllers and wiring. The fuse and disconnect positions are shown schematically. Their ratings depend on your hardware.</p>
+  </section>
+
+  <section id="tuning" aria-labelledby="tune-title">
+    <h2 id="tune-title">Tune the wheel PID loops</h2>
+    <div class="guide">
+      <h3>Calibrate each Hall input</h3>
+      <ol>
+        <li>Raise both wheels. Power the Hall sensors and leave the joystick released. Open the ESP32 serial terminal at <strong>115200 baud</strong>.</li>
+        <li>Type <code>show</code>. Mark one wheel, turn it by hand for five complete revolutions, then type <code>show</code> again. Only that wheel’s pulse count should increase.</li>
+        <li>Divide the increase by five. Enter <code>ppr l &lt;count&gt;</code> for the left wheel or <code>ppr r &lt;count&gt;</code> for the right. For example, 75 counts over five turns gives <code>ppr l 15</code> if it was the left wheel. Repeat for the other wheel, then enter <code>save</code>.</li>
+      </ol>
+      <p>Driving becomes available after both counts are entered. If neither counter changes, check Hall power, the common ground, and the buffer output on D22 or D18 with the wheel turning.</p>
+      <h3>Set a repeatable speed step</h3>
+      <ol>
+        <li>Join <strong>HotelBot</strong> Wi-Fi and open <a href="http://192.168.4.1/">192.168.4.1</a>. Set the speed limit to <strong>30 RPM</strong>, then hold the joystick all the way forward for a straight, repeatable test. Release it before changing gains.</li>
+        <li>Type <code>log on</code> to see target RPM, measured RPM and PWM for each wheel. The browser shows estimated and target RPM. The estimate uses Hall pulses for speed and the active direction output for the sign. Use <code>log off</code> when finished.</li>
+        <li>Change one wheel at a time. To start with just proportional control, enter <code>pid l 0.005 0 0</code> or <code>pid r 0.005 0 0</code>. The three numbers are Kp, Ki, Kd in that order.</li>
+      </ol>
+      <h3>Choose the gains</h3>
+      <ol>
+        <li><strong>Kp controls how quickly the wheel reacts.</strong> Raise it in small steps if the response is slow. Lower it if RPM repeatedly overshoots or hunts around the target.</li>
+        <li><strong>Ki removes steady speed error.</strong> Keep the Kp you chose and try a small Ki, such as <code>pid l 0.005 0.005 0</code> if the left Kp is still 0.005. Increase Ki gradually if RPM settles below the target with PWM still below the cap. Reduce Ki if the wheel overshoots and takes longer to settle.</li>
+        <li><strong>Start with Kd at zero.</strong> It reacts to changes in measured RPM and can amplify Hall timing noise. Repeat the tuning on the other wheel. Recheck at low speed under load, then enter <code>save</code>.</li>
+      </ol>
+      <p>If PWM stays at the 55% firmware cap and RPM is still low, lower the test target and check for load, supply or startup problems. If the UI reports a Hall fault, check the affected counter by hand and tap <strong>Clear Hall fault</strong> once feedback is restored.</p>
+      <p><strong>Drive with Hall override</strong> allows limited drive after a Hall fault. The affected wheel uses open-loop PWM capped at 30% and its RPM is unknown. Use <strong>Stop</strong> to cancel the override before tuning.</p>
+    </div>
+  </section>
+
+  <footer>
+    References include the <a href="https://github.com/playelek/pinout-doit-32devkitv1">photographed DOIT DevKit V1 pinout</a>, the <a href="https://www.ti.com/lit/ds/symlink/sn74lvc3g17.pdf">TI Hall buffer datasheet</a>, the <a href="https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html">Espressif boot guide</a>, and the <a href="https://docs.wpilib.org/en/2021/docs/software/advanced-control/introduction/tuning-pid-controller.html">WPILib PID tuning guide</a>.
+    See the <a href="../../firmware/drive-controller/README.md">drive firmware notes</a>.
+  </footer>
+  <noscript>The wire drawings need JavaScript. The pin table and tuning guide are available above.</noscript>
+</main>
+<script>
+'use strict';
+const nets = {
+  'l-a': ['left', 'Left Hall A', 'D19 / GPIO19'],
+  'l-b': ['left', 'Left Hall B', 'D21 / GPIO21'],
+  'l-c': ['left', 'Left Hall C · RPM', 'D22 / GPIO22'],
+  'l-pwm': ['left', 'Left PWM', 'D15 / GPIO15'],
+  'l-dir': ['left', 'Left direction', 'D4 / GPIO4'],
+  'r-a': ['right', 'Right Hall A', 'TX2 / GPIO17'],
+  'r-b': ['right', 'Right Hall B', 'D5 / GPIO5'],
+  'r-c': ['right', 'Right Hall C · RPM', 'D18 / GPIO18'],
+  'r-pwm': ['right', 'Right PWM', 'RX2 / GPIO16'],
+  'r-dir': ['right', 'Right direction', 'D23 / GPIO23'],
+  '3v3': ['power', '3V3 · both Hall buffers'],
+  'gnd': ['ground', 'Common signal ground'],
+  'bat+': ['power', 'Battery positive after cutoff'],
+  'bat-': ['ground', 'Battery negative / motor return'],
+  'usb': ['usb', 'USB power and serial']
+};
+for (const side of ['l','r']) {
+  const type = side === 'l' ? 'left' : 'right';
+  nets[side + '-hall5'] = ['power', type + ' motor Hall 5 V'];
+  nets[side + '-hallg'] = ['ground', type + ' motor Hall GND'];
+  for (const phase of ['a','b','c']) {
+    nets[side + '-m' + phase] = ['phase', type + ' motor phase ' + phase.toUpperCase()];
+  }
+}
+const esc = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
+const text = (x,y,value,css='',anchor='start') => `<text x="${x}" y="${y}" class="${css}" text-anchor="${anchor}">${esc(value)}</text>`;
+const rect = (x,y,w,h,fill,rx=0,stroke='none') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${stroke}"/>`;
+const dot = (x,y) => `<circle class="s-dot" cx="${x}" cy="${y}" r="4.4"/>`;
+const circle = (x,y,r,fill,stroke='none') => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}"/>`;
+const wire = d => `<path class="s-halo" d="${d}"/><path class="s-wire" d="${d}"/>`;
+const ref = (id,body,heavy=false) => `<g class="s-net tone-${nets[id][0]}${heavy?' s-heavy':''}" data-net="${id}" tabindex="0" role="button" aria-pressed="false" aria-label="${esc(nets[id].slice(1).join(' · '))}">${body}</g>`;
+const line = (d,stroke='#9eb4a4',width=1.5) => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const groups = values => values.join('');
+function svg(id,height,label,contents) {
+  document.getElementById(id).innerHTML = `<svg viewBox="0 0 960 ${height}" role="group" aria-label="${esc(label)}">${contents}</svg>`;
+}
+
+function esp32() {
+  const bank = {
+    D23:'r-dir', D22:'l-c', D21:'l-b', D19:'l-a', D18:'r-c', D5:'r-b', TX2:'r-a',
+    RX2:'r-pwm', D4:'l-dir', D15:'l-pwm', GND:'gnd', '3V3':'3v3'
+  };
+  const left = ['EN','VP','VN','D34','D35','D32','D33','D25','D26','D27','D14','D12','D13','GND','VIN'];
+  const right = ['D23','D22','TX0','RX0','D21','D19','D18','D5','TX2','RX2','D4','D2','D15','GND','3V3'];
+  const yAt = i => 119+i*27;
+  const out = [
+    text(28,37,'DevKit V1 · top view','s-heading'),text(514,87,'To signal circuits','s-sub'),
+    rect(102,92,244,445,'#132e28',14),rect(95,82,243,443,'#285248',14,'#173e35'),
+    rect(140,88,145,197,'#192931',5,'#59756d'),
+    rect(150,157,125,121,'#a5b0b1',5,'#d6dedc'),
+    rect(156,162,113,109,'#bac5c3',4),
+    text(212,202,'ESP32-WROOM','s-sub','middle'),text(212,224,'Radio module','s-small','middle'),
+    line('M151 139H165V111H179V139H193V111H207V139H221V111H235V139H249V111H263V139H275','#b5a573',3),
+    rect(183,343,61,48,'#19302b',4,'#6d8b7c'),text(214,372,'USB UART','s-on-board','middle'),
+    rect(161,417,35,24,'#172b27',3,'#9cb1a1'),text(178,456,'REG','s-on-board','middle'),
+    rect(194,470,52,66,'#bfcac9',4,'#889694'),rect(199,509,42,20,'#20302f',2),rect(203,514,34,5,'#7b8f89',2),
+    rect(137,470,35,29,'#7b8b86',4),circle(154,481,6,'#233a30'),text(154,514,'EN','s-on-board','middle'),
+    rect(263,470,35,29,'#7b8b86',4),circle(280,481,6,'#233a30'),text(280,514,'BOOT','s-on-board','middle'),
+    circle(252,444,4,'#a8cd76','#d2e3b3'),circle(260,444,3,'#d0ad6b'),
+    text(205,307,'DEVKIT V1','s-on-board','middle'),text(260,571,'USB data + 5 V','s-pin')
+  ];
+  for (const [x,y] of [[112,100],[321,100],[112,518],[321,518]]) {
+    out.push(circle(x,y,5.5,'#90aa9c'),circle(x,y,3.3,'#142c25'));
+  }
+  for (let i=0;i<9;i++) {
+    const x=158+(i%3)*43, y=320+Math.floor(i/3)*75;
+    out.push(rect(x,y,9,4,'#c6c4a3',1),rect(x+3,y,3,4,'#4a6559',1));
+  }
+  left.forEach((pin,i)=>{
+    out.push(circle(113,yAt(i),6,'#b8a36a','#dacd9a'),circle(113,yAt(i),2.5,'#17382e'),
+             text(75,yAt(i)+5,pin,'s-pin','end'));
+  });
+  right.forEach((pin,i)=>{
+    const y=yAt(i), id=bank[pin];
+    out.push(circle(319,y,6,'#c0a96b','#e0d29b'),circle(319,y,2.5,'#18362d'),
+             text(302,y+4,pin,'s-on-board','end'));
+    if (id) {
+      const [tone,name,gpio] = nets[id];
+      out.push(ref(id,wire(`M325 ${y}H496`)+dot(325,y)+dot(496,y)+
+        text(514,y+5,name,'s-pin')+(gpio?text(731,y+5,gpio,'s-small'):'')+
+        (tone==='left'||tone==='right'?circle(499,y,2.4,'var(--'+tone+')'):'')
+      ));
+    } else if (pin==='TX0' || pin==='RX0') {
+      out.push(line(`M325 ${y}H375`,'#a6b6ab',1.5),text(389,y+5,`${pin} · USB serial`,'s-small'));
+    } else {
+      out.push(text(351,y+5,'Available','s-small'));
+    }
+  });
+  out.push(ref('usb',wire('M220 536V566H247')+dot(220,536)+dot(247,566)));
+  return groups(out);
+}
+
+function terminal(x,y) {
+  return rect(x-5,y-8,13,16,'#a2b5a7',2,'#617d69')+
+    circle(x+2,y,4,'#e0e4db','#64766a')+line(`M${x-1} ${y+1}l6 -2`,'#6a756c',1.4);
+}
+
+function wheel(side) {
+  const name = side==='l'?'Left':'Right';
+  const color = side==='l'?'#00645c':'#924127';
+  const out=[
+    text(24,39,name+' drive · ZS-X11H V2','s-heading'),
+    rect(262,75,248,303,'#253c34',10),
+    rect(255,67,248,303,'#35564a',10,'#244438'),
+    rect(286,85,52,20,'#1f332e',2),rect(288,88,48,4,'#88998f'),
+    text(351,101,'External PWM jumper','s-on-board'),
+    rect(345,175,74,91,'#21382f',4),
+    text(382,230,'DRIVER','s-on-board','middle'),
+    text(382,250,'ZS-X11H V2','s-on-board','middle'),
+    circle(799,207,93,'#27302f'),circle(799,205,83,'#414c4b'),
+    circle(799,204,66,'#8b9897','#b9c5bf'),circle(799,204,57,'#b5beb7'),
+    circle(799,204,25,'#687775','#d9e0d7'),circle(799,204,12,'#34423f','#83928c'),
+    rect(696,114,22,229,'#344b41',3,'#657c6b'),
+    text(799,326,name+' wheel motor','s-sub','middle')
+  ];
+  for (let i=0;i<12;i++) {
+    const angle=i*Math.PI/6, x=799+75*Math.cos(angle), y=204+75*Math.sin(angle);
+    out.push(circle(x,y,2.4,'#bcc8bd'),circle(x,y,.9,'#3c4943'));
+  }
+  for (let i=0;i<6;i++) out.push(rect(345+i*11,180,4,19,'#718a7b',1),rect(345+i*11,249,4,11,'#142a23',1));
+  const control=[
+    [side+'-pwm','PWM throttle',128,nets[side+'-pwm'][2]],
+    [side+'-dir','Rotation',156,'From NPN collector'],
+    ['gnd','Signal GND',184,'Common ground'],
+    ['bat+','VCC',292,'From fused battery +'],
+    ['bat-','Power GND',320,'Battery − return']
+  ];
+  for (const [id,label,y,lead] of control) {
+    out.push(ref(id,wire(`M44 ${y}H254`)+dot(44,y)+dot(254,y)+text(48,y-8,lead,'s-small'),id.startsWith('bat')));
+    out.push(terminal(255,y),text(273,y+5,label,'s-on-board'));
+  }
+  const motor=[
+    [side+'-ma','MA',127],[side+'-mb','MB',153],[side+'-mc','MC',179],
+    [side+'-hallg','Hall GND',224],[side+'-a','HA',250],[side+'-b','HB',276],
+    [side+'-c','HC',302],[side+'-hall5','Hall 5 V',328]
+  ];
+  for (const [id,label,y] of motor) {
+    out.push(ref(id,wire(`M502 ${y}H705`)+dot(502,y)+dot(705,y),id.startsWith(side+'-m')));
+    out.push(terminal(494,y),text(484,y+4,label,'s-on-board','end'),terminal(702,y));
+  }
+  const taps=[['a',553,250,398],['b',597,276,425],['c',644,302,452]];
+  for (const [phase,x,y,row] of taps) {
+    const id=side+'-'+phase;
+    out.push(ref(id,wire(`M${x} ${y}V${row}H690`)+dot(x,y)+dot(690,row)+
+      text(703,row+5,'Hall '+phase.toUpperCase()+' tap to buffer','s-pin')));
+  }
+  out.push(text(44,356,'Use shared signal ground.','s-small'),
+           text(44,377,'Use a heavy motor return.','s-small'),
+           text(44,441,'Each dot on a Hall wire is a parallel splice.','s-small'),
+           rect(44,453,34,4,color,2));
+  return groups(out);
+}
+
+function interfaces() {
+  const out=[
+    text(25,39,'Hall buffer','s-heading'),text(543,39,'PWM and Rotation','s-heading'),
+    line('M508 52V450','#ccd8cd',1),text(25,66,'Use one SN74LVC3G17 per wheel','s-small'),
+    text(543,66,'Use one ground-switch circuit per driver','s-small'),
+    rect(162,109,163,164,'#213d35',6,'#102c25'),
+    text(244,141,'SN74LVC3G17','s-on-board','middle'),
+    text(735,186,'2N3904 NPN','s-sub','middle'),
+    rect(639,212,145,90,'#e5ece2',6,'#8ca094'),
+    text(654,241,'B','s-pin'),text(761,241,'C','s-pin'),text(706,286,'E','s-pin','middle'),
+    line('M639 235H690M690 223V260M690 232L733 218H784M690 249L718 273V302','#273d33',2.5),
+    line('M706 265L718 273L716 261Z','#273d33',1.7),
+    text(48,315,'Buffer power and bypass (both wheels)','s-sub'),
+    text(542,115,'ESP32 PWM','s-pin'),text(925,115,'Driver PWM','s-pin','end'),
+    text(542,221,'ESP32 DIR','s-pin'),text(925,207,'Driver Rotation','s-pin','end'),
+    text(866,164,'10 kΩ','s-small'),text(553,274,'4.7 kΩ','s-small'),text(630,334,'100 kΩ','s-small'),
+    text(383,119,'Left','s-small'),text(442,119,'Right','s-small'),
+    text(28,444,'Pins shown by circuit function. Use the package pin-1 mark and datasheet for pad placement.','s-small')
+  ];
+  const rows = [
+    ['A',1,7,164,'D19','TX2'],
+    ['B',3,5,201,'D21','D5'],
+    ['C',6,2,238,'D22','D18']
+  ];
+  for (const [phase,input,output,y,left,right] of rows) {
+    const key=phase.toLowerCase();
+    out.push(line(`M98 ${y}H162M325 ${y}H366`,'#77958a',3),
+             circle(366,y,3.5,'#77958a'),
+             text(25,y+5,'H'+phase+' tap','s-pin'),
+             text(173,y+4,'IN '+input,'s-on-board'),
+             text(313,y+4,'OUT '+output,'s-on-board','end'));
+    for (const [side,x,pin] of [['l',379,left],['r',437,right]]) {
+      out.push(ref(side+'-'+key,rect(x,y-13,51,25,side==='l'?'#e0eee5':'#f3e8dd',3)+
+        text(x+25,y+4,pin,'s-small','middle')));
+    }
+  }
+  out.push(ref('3v3',wire('M53 355H433')+dot(53,355)+dot(192,355)+dot(433,355)+
+      text(53,346,'3V3','s-pin')+text(433,346,'Pin 8 · VCC','s-pin','end')),
+    ref('gnd',wire('M53 408H433')+dot(53,408)+dot(192,408)+dot(433,408)+
+      text(53,429,'GND','s-pin')+text(433,429,'Pin 4 · GND','s-pin','end')),
+    line('M192 355V374M179 374H205M179 385H205M192 385V408','#30483d',2.4),
+    text(217,386,'100 nF','s-small'),
+    ref('gnd',wire('M547 400H940V191H848V178M718 400V302M615 400V360')+dot(547,400)+
+      dot(718,400)+dot(615,400)+dot(940,400)+text(936,421,'Common GND','s-pin','end')),
+    line('M543 130H925M848 130V145M841 145H855V178H841Z','#3d5b4b',2.4),
+    circle(848,130,4,'#3d5b4b'),
+    line('M543 236H552M552 229H596V243H552ZM596 236H639M615 236V327M608 327H622V360H608Z','#3d5b4b',2.4),
+    circle(615,236,4,'#3d5b4b'),
+    line('M784 218H925','#3d5b4b',2.4));
+  return groups(out);
+}
+
+function power() {
+  const out=[
+    text(24,39,'Power distribution','s-heading'),
+    rect(35,98,155,188,'#253f34',10),
+    rect(27,92,155,188,'#36554a',10,'#243e33'),
+    rect(40,103,130,164,'#587566',7),rect(49,112,111,146,'#486659',5),
+    text(104,166,'BATTERY','s-on-board','middle'),text(104,185,'BMS output','s-on-board','middle'),
+    text(162,131,'PACK +','s-on-board','end'),text(162,234,'PACK −','s-on-board','end'),
+    rect(241,111,100,43,'#e3eae0',5,'#809b8b'),text(291,137,'Fuse','s-pin','middle'),
+    rect(378,111,110,43,'#e3eae0',5,'#809b8b'),text(433,137,'Disconnect','s-pin','middle'),
+    rect(743,66,183,98,'#345548',6),text(758,91,'Left driver','s-invert s-sub'),
+    rect(743,211,183,98,'#345548',6),text(758,237,'Right driver','s-invert s-sub'),
+    text(758,114,'VCC','s-on-board'),text(758,141,'Power GND','s-on-board'),
+    text(758,260,'VCC','s-on-board'),text(758,286,'Power GND','s-on-board'),
+    rect(28,345,177,57,'#e4ebe2',4,'#8fa79a'),text(116,369,'USB host','s-sub','middle'),
+    text(116,389,'Computer or Pi','s-small','middle'),
+    rect(341,345,174,57,'#e4ebe2',4,'#8fa79a'),text(428,378,'ESP32 USB','s-sub','middle'),
+    text(925,362,'Signal ground branch','s-pin','end'),
+    text(925,391,'ESP32, both buffers and driver signal GNDs','s-small','end')
+  ];
+  out.push(ref('bat+',wire('M182 127H241M341 132H378M488 132H546V110H743M546 132V256H743')+
+    dot(182,127)+dot(546,132)+dot(743,110)+dot(743,256),true));
+  out.push(ref('bat-',wire('M182 229H610V137H743M610 229V282H743')+
+    dot(182,229)+dot(610,229)+dot(743,137)+dot(743,282),true));
+  out.push(ref('gnd',wire('M610 282V371H925')+dot(610,282)+dot(925,371)));
+  out.push(ref('usb',wire('M205 374H341')+dot(205,374)+dot(341,374)));
+  return groups(out);
+}
+
+svg('board-sheet',596,'ESP32 DevKit V1 wiring and complete 30-pin header',esp32());
+svg('left-sheet',482,'Left motor phase, Hall harness, PWM, Rotation and power wiring',wheel('l'));
+svg('right-sheet',482,'Right motor phase, Hall harness, PWM, Rotation and power wiring',wheel('r'));
+svg('buffer-sheet',466,'Hall conditioning and driver control interface circuits',interfaces());
+svg('power-sheet',431,'Battery, protection, power returns and USB',power());
+
+let picked = '';
+const status = document.getElementById('selection');
+const clear = document.getElementById('clear');
+const items = [...document.querySelectorAll('[data-net]')];
+const hint = status.textContent;
+function select(next) {
+  picked = next === picked ? '' : next;
+  document.documentElement.classList.toggle('has-selection',Boolean(picked));
+  for (const item of items) {
+    const selected = item.dataset.net === picked;
+    item.classList.toggle('is-active',selected);
+    item.setAttribute('aria-pressed',String(selected));
+  }
+  clear.disabled = !picked;
+  status.textContent = picked ? nets[picked].slice(1).join(' · ') : hint;
+}
+for (const item of items) {
+  item.addEventListener('click',()=>select(item.dataset.net));
+  item.addEventListener('keydown',event=>{
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();select(item.dataset.net);}
+  });
+}
+clear.addEventListener('click',()=>select(''));
+document.addEventListener('keydown',event=>{if(event.key==='Escape')select('');});
+</script>
+</body>
+</html>

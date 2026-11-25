@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hotelbot · Full wiring schematic</title>
+<style>
+:root { --ink:#202b31; --soft:#556470; --border:#d2d9dd; --sheet:#fff; --phase:#a65b21; --hall:#69479a; --control:#235d94; --power:#ac3434; --ground:#41515a }
+*{box-sizing:border-box}
+body{margin:0;background:#f1f4f5;color:var(--ink);font:15px/1.55 system-ui,sans-serif}
+header,main{max-width:1140px;margin:auto;padding:24px clamp(12px,4vw,44px)}
+header{padding-top:36px} main{padding-top:0}
+h1{margin:0;font-size:clamp(27px,5vw,42px);letter-spacing:-.035em}
+h2{margin:0 0 4px;font-size:23px} p{margin:5px 0 12px;color:var(--soft)}
+nav{display:flex;gap:8px 20px;flex-wrap:wrap}
+a{color:#235d94;text-underline-offset:3px}
+section{padding:clamp(12px,3vw,24px);background:var(--sheet);border:1px solid var(--border);margin-bottom:15px;border-radius:8px;scroll-margin:12px}
+.scroll{overflow-x:auto} svg{display:block;width:100%;height:auto;min-width:790px}
+svg text{font:14px system-ui,sans-serif;fill:var(--ink)} svg .heading{font-size:17px;font-weight:700} svg .small{font-size:12px;fill:var(--soft)}
+svg .box{fill:#f6f8f8;stroke:#9cabb3;stroke-width:1.4}
+svg .part{fill:#edf3f8;stroke:#9aacb9;stroke-width:1.25}
+svg .wire{fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+svg .dot{fill:currentColor;stroke:none}
+svg .power{color:var(--power)} svg .ground{color:var(--ground)} svg .phase{color:var(--phase)}
+svg .hall{color:var(--hall)} svg .control{color:var(--control)}
+.note{background:#f8f0e1;padding:10px 13px;border-left:3px solid #a67033}
+@media print{body{background:#fff}nav{display:none}section{break-inside:avoid}svg{min-width:0}}
+</style>
+<script defer src="full-wiring.js"></script>
+</head>
+<body>
+<header>
+<h1>Hotelbot wiring schematic</h1>
+<p>Raspberry Pi 4B · Waveshare ESP32-S3-Zero · two ZS-X11H V2 motor drivers</p>
+<nav aria-label="Schematic sheets"><a href="#power">Battery and power</a><a href="#left">Left motor</a><a href="#right">Right motor</a><a href="#pi">Pi and peripherals</a><a href="wiring-guide.html">Setup and bench checks</a></nav>
+</header>
+<main>
+<section id="power">
+<h2>Battery and power</h2>
+<p>The battery and ground connections shown here continue on the motor and Pi sheets. A filled dot marks an electrical junction.</p>
+<div class="scroll" tabindex="0" aria-label="Power schematic"><div id="power-sheet"></div></div>
+<p class="note">The pack’s BMS cutoff ratings are unverified. The drawing follows your prototype layout without added fuses. Confirm the battery’s full-charge voltage, connector polarity and wire capacity before applying motor power.</p>
+</section>
+<section id="left">
+<h2>Left motor and driver</h2>
+<p>Wire by terminal label. Find the controller connector orientation below the two motor sheets.</p>
+<div class="scroll" tabindex="0" aria-label="Left motor schematic"><div id="left-sheet"></div></div>
+</section>
+<section id="right">
+<h2>Right motor and driver</h2>
+<div class="scroll" tabindex="0" aria-label="Right motor schematic"><div id="right-sheet"></div></div>
+</section>
+<section id="connectors">
+<h2>ZS-X11H V2 connector orientation</h2>
+<p>View the component side with the board lettering upright and the white plugs along the bottom edge, as in your annotated photo.</p>
+<div class="scroll" tabindex="0" aria-label="Driver connector positions"><div id="connector-sheet"></div></div>
+<p>Fit the external PWM jumper. Verify that zero PWM and an unplugged or resetting ESP32 leave the wheel stopped. Use the actual motor pinout for phase correspondence and Hall harness order. Inspect the connector from the board side shown here, since the wire-side view reverses pin order.</p>
+<p>U1 and U2 use TI’s <b>SN74LVC3G17 DCT or DCU</b> eight-pin package numbering. Use one buffer per wheel and place its 100 nF capacitor close to pins 8 and 4. Measure the Hall levels while they are connected to the drivers and confirm the buffer input ratings. Q1 and Q2 are shown by emitter, base and collector. Match those names to the pinout of the package you have.</p>
+</section>
+<section id="pi">
+<h2>Pi, USB and optional altimeter</h2>
+<p>The Pi and ESP32 share one USB cable for wheel-speed commands, paired wheel-position moves and Hall feedback. See the <a href="system-diagram.html#loop">proposed wheel control loops</a>.</p>
+<div class="scroll" tabindex="0" aria-label="Pi and peripheral wiring"><div id="pi-sheet"></div></div>
+<p>Use the BMP390’s four-pin JST-SH to female DuPont cable. Plug the female ends straight onto the Pi’s physical header pins shown above. The microphone, lidar adapter and ESP32 each use a Pi USB port. The powered speaker uses USB for power and the 3.5 mm jack for audio.</p>
+<p><small>Pin references · <a href="https://docs.waveshare.com/ESP32-S3-Zero#pinout">Waveshare ESP32-S3-Zero</a> · <a href="https://www.ti.com/lit/ds/symlink/sn74lvc3g17.pdf">TI buffer datasheet, pin functions</a> · <a href="https://datasheets.raspberrypi.com/rpi4/raspberry-pi-4-datasheet.pdf">Pi 4B</a> · <a href="https://www.adafruit.com/product/4397">JST-SH cable</a>. Controller labels and jumper position follow your ZS-X11H V2 image.</small></p>
+</section>
+</main>
+</body>
+</html>

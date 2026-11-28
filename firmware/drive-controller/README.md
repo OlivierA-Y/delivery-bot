@@ -6,12 +6,14 @@ Open the [DevKit V1 wiring and PID tuning guide](../../models/motor-mount/devkit
 
 ## Wiring
 
-| Wheel | PWM | Rotation | Hall C feedback |
-| --- | --- | --- | --- |
-| Left | D15 / GPIO15 | D4 / GPIO4 | D22 / GPIO22 |
-| Right | RX2 / GPIO16 | D23 / GPIO23 | D18 / GPIO18 |
+| Wheel | PWM | Rotation | Hall C feedback | Brake ground switch |
+| --- | --- | --- | --- | --- |
+| Left | D15 / GPIO15 | D4 / GPIO4 | D22 / GPIO22 | D12 / GPIO12 |
+| Right | RX2 / GPIO16 | D23 / GPIO23 | D18 / GPIO18 | D13 / GPIO13 |
 
 Each Hall input counts rising edges on a single channel. The Hall wires used for commutation still go to their motor drivers. The other Hall taps are unused by this firmware. Share signal ground and use 3.3 V-compatible feedback on the ESP32. See the [wiring guide](../../models/motor-mount/wiring-guide.html#drive) for Hall conditioning and the ground-switch interface on the Rotation inputs. The ESP32 forward levels are left LOW and right HIGH.
+
+Drive each Brake terminal through its ground-switch transistor. GPIO HIGH closes the switch to signal ground, and LOW opens it. Keep GPIO12 low at reset to preserve the ESP32's 3.3 V flash setting. [Espressif boot mode guide](https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html)
 
 Keep RX0/TX0 free for USB serial. Move the right Rotation control wire to D23 with motor power off and leave the old D2 connection unplugged. GPIO2 is a boot strap pin. [Espressif boot mode guide](https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/boot-mode-selection.html)
 
@@ -21,7 +23,13 @@ Keep RX0/TX0 free for USB serial. Move the right Rotation control wire to D23 wi
 2. Join **HotelBot** on your phone with password **hotelbot-drive**. Stay connected if the phone reports that the network has no internet.
 3. Open **http://192.168.4.1/**. Only one Wi-Fi client can connect at a time. Opening a new controller tab takes over from the previous tab.
 
-Drag the joystick forward or back to set travel speed. Drag left or right to steer. Horizontal motion alone pivots the car. The speed slider caps the wheel targets in RPM. The screen shows estimated wheel RPM first and target RPM second. Hall C measures speed magnitude. The first number uses the active direction output for its sign, including during the coast interval before a reversal. Release the joystick or tap **Stop** to cut throttle and coast. The ESP32 also cuts throttle if it goes 350 ms without a fresh motion command. Reversing cuts throttle and changes the Rotation input after PWM has been off for at least 100 ms and Hall-derived speed is at most 50 RPM. A wheel using Hall override keeps the 1.5 second pause.
+Drag the joystick forward or back to set travel speed. Drag left or right to steer. Horizontal motion alone pivots the car. The speed slider caps the wheel targets in RPM. The screen shows estimated wheel RPM first and target RPM second. Hall C measures speed magnitude. The first number uses the active direction output for its sign, so the displayed sign can change before the wheel physically reverses.
+
+For a driving turn, move the stick forward or backward and add a small sideways input. The steering mix blends between the driving turn and the sideways pivot as the stick crosses between those regions.
+
+Releasing the joystick cuts PWM, waits one PWM cycle if the wheel was powered, then engages that wheel's brake for up to 500 ms. A new command releases the brakes before drive resumes. Tap **Stop** to cut throttle and coast. The ESP32 coasts after 350 ms without a fresh motion command.
+
+In normal drive, a reversal sets PWM to zero and switches the Rotation input on the same control update. A powered wheel gets one PWM cycle, about 2 ms, for the new duty to take effect before the switch. PID resumes on the next update. A wheel using Hall override keeps the 1.5 second pause.
 
 The starting speed limit is 40 RPM, and the configured maximum is 240 RPM. The controller caps its internal PWM output at 55% during initial tuning. The limits are in [config.h](src/config.h).
 
@@ -40,6 +48,18 @@ python3 tools/drive-bench/eduroam.py /dev/ttyUSB0 forget
 ```
 
 `status` prints the eduroam IP address when connected. Open that address with `http://` to reach the drive page from eduroam if the network allows traffic between clients. Anyone who can reach that address can operate the drive page without a login. `forget` removes the saved profile. Power-cycle after forgetting to end the active eduroam connection. The ESP32 uses a single radio, so the HotelBot hotspot follows eduroam's channel while connected.
+
+## Update over Wi-Fi
+
+Flash the OTA-enabled firmware over USB once. With the wheels stopped, provision a key over USB. The tool stores a private copy in `~/.config/hotelbot/ota.key`.
+
+```sh
+python3 tools/drive-bench/ota.py provision /dev/ttyUSB0
+pio run -d firmware/drive-controller -e esp32dev
+python3 tools/drive-bench/ota.py upload 100.67.9.22 firmware/drive-controller/.pio/build/esp32dev/firmware.bin
+```
+
+Use the actual serial port and HotelBot IP. The hotspot address `192.168.4.1` also works. The upload proves possession of the key without sending it over Wi-Fi. Drive stays disabled during an accepted upload. The ESP32 validates the image in the other app slot before selecting it and restarting. Wi-Fi credentials and saved wheel tuning remain in their existing flash storage. For USB recovery after an OTA update, use PlatformIO's full USB upload to restore the boot selection along with the application.
 
 ## Calibrate the Hall inputs
 

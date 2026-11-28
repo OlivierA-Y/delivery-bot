@@ -12,29 +12,30 @@
 #include "controller.h"
 #include "eduroam.h"
 #include "hall_feedback.h"
+#include "ota_update.h"
 #include "speed_control.h"
 
 namespace {
 constexpr uint32_t kPwmHz = 490;
+constexpr uint32_t kPwmPeriodUs = (1'000'000 + kPwmHz - 1) / kPwmHz;
 constexpr uint8_t kPwmBits = 8;
 constexpr int kMaxDuty = (1 << kPwmBits) - 1;
 constexpr uint32_t kCommandTimeoutMs = 350;
-constexpr uint32_t kDirectionPauseMs = 100;
 constexpr uint32_t kDirectionPauseWithoutHallMs = 1500;
 constexpr uint32_t kUpdatePeriodMs = 10;
 constexpr int kDutyStep = 3;
 
 constexpr uint32_t kFeedbackTimeoutMs = 1500;
 constexpr float kMinWheelRpm = 3;
-constexpr float kDirectionChangeMaxRpm = 50;
 constexpr unsigned kMaxPulsesPerRev = 1000;
 constexpr int kBenchMaxRpm = 40;
 constexpr unsigned kBenchMaxMs = 4000;
 constexpr float kBenchDutyLimit = 0.35f;
+constexpr uint32_t kJoystickBrakeAction = 3;
 
 constexpr bool distinctPins() {
-  constexpr int pins[] = {kLeftMotor.pwm, kLeftMotor.direction, kLeftMotor.hall,
-                          kRightMotor.pwm, kRightMotor.direction, kRightMotor.hall};
+  constexpr int pins[] = {kLeftMotor.pwm, kLeftMotor.direction, kLeftMotor.hall, kLeftMotor.brake,
+                          kRightMotor.pwm, kRightMotor.direction, kRightMotor.hall, kRightMotor.brake};
   for (size_t i = 0; i < std::size(pins); ++i) {
     for (size_t j = i + 1; j < std::size(pins); ++j) {
       if (pins[i] == pins[j]) return false;
@@ -42,7 +43,7 @@ constexpr bool distinctPins() {
   }
   return true;
 }
-static_assert(distinctPins(), "Motor and Hall GPIOs must be distinct");
+static_assert(distinctPins(), "Motor, brake, and Hall GPIOs must be distinct");
 
 enum DriveFault : unsigned { NoFault = 0, LeftHall = 1, RightHall = 2, Pwm = 4 };
 enum class WheelResult { Ok, FeedbackLost, PwmError };
@@ -64,6 +65,8 @@ class Wheel {
     digitalWrite(pins_.pwm, LOW);
     pinMode(pins_.direction, OUTPUT);
     digitalWrite(pins_.direction, pins_.forwardLevel);
+    pinMode(pins_.brake, OUTPUT);
+    digitalWrite(pins_.brake, LOW);
     feedback_.begin(pins_.hall);
     return ledcAttach(pins_.pwm, kPwmHz, kPwmBits) && ledcWrite(pins_.pwm, 0);
   }
@@ -72,23 +75,36 @@ class Wheel {
     ledcDetach(pins_.pwm);
     pinMode(pins_.pwm, OUTPUT);
     digitalWrite(pins_.pwm, LOW);
+    setBrake(false);
   }
 
-  WheelResult update(float target, uint32_t now, int64_t nowUs, float seconds, bool bypassHall, float dutyLimit = kMaxDutyFraction) {
+  WheelResult update(float target, uint32_t now, int64_t nowUs, float seconds, bool bypassHall,
+                     float dutyLimit = kMaxDutyFraction, bool brakeOnRelease = false) {
     const HallReading pulses = hall();
     const float rawRpm = estimateRpm(pulses, tune.pulsesPerRev, nowUs);
     measuredRpm_ += (rawRpm - measuredRpm_) * seconds / (0.08f + seconds);
+    if (brakeOnRelease || braking_) {
+      const bool powered = duty_ > 0;
+      const WheelResult stopped = coast(now);
+      if (stopped != WheelResult::Ok) return stopped;
+      if (powered) delayMicroseconds(kPwmPeriodUs);
+      setBrake(brakeOnRelease);
+      // Resume drive on the update after the brake is released.
+      return WheelResult::Ok;
+    }
     if (std::abs(target) < kMinWheelRpm) return coast(now);
 
     const bool forward = target > 0;
     if (forward != forward_) {
+      const bool powered = duty_ > 0;
       const WheelResult stopped = coast(now);
       if (stopped != WheelResult::Ok) return stopped;
-      const uint32_t pause = bypassHall ? kDirectionPauseWithoutHallMs : kDirectionPauseMs;
-      const float maxChangeRpm = bypassHall ? kMinWheelRpm : kDirectionChangeMaxRpm;
-      if ((hasDriven_ && now - lastPoweredAt_ < pause) || rawRpm > maxChangeRpm) {
+      if (bypassHall &&
+          ((hasDriven_ && now - lastPoweredAt_ < kDirectionPauseWithoutHallMs) || rawRpm > kMinWheelRpm)) {
         return WheelResult::Ok;
       }
+      // LEDC applies zero duty by the next PWM cycle.
+      if (powered) delayMicroseconds(kPwmPeriodUs);
       digitalWrite(pins_.direction, forward ? pins_.forwardLevel : !pins_.forwardLevel);
       forward_ = forward;
       return WheelResult::Ok;
@@ -124,6 +140,12 @@ class Wheel {
   }
 
  private:
+  void setBrake(bool engaged) {
+    if (braking_ == engaged) return;
+    digitalWrite(pins_.brake, engaged ? HIGH : LOW);
+    braking_ = engaged;
+  }
+
   bool writeDuty(int next, uint32_t now) {
     if (duty_ > 0) {
       hasDriven_ = true;
@@ -144,6 +166,7 @@ class Wheel {
   uint32_t feedbackAt_ = 0;
   bool forward_ = true;
   bool hasDriven_ = false;
+  bool braking_ = false;
   int duty_ = 0;
   uint32_t lastPoweredAt_ = 0;
 };
@@ -151,6 +174,7 @@ class Wheel {
 struct Command {
   WheelSpeeds targets;
   uint32_t receivedAt = 0;
+  bool brakeOnRelease = false;
   bool moving() const { return targets.left != 0 || targets.right != 0; }
 };
 
@@ -171,6 +195,9 @@ uint32_t lastSequence = 0;
 uint32_t bootId = 0;
 bool bootedAfterBrownout = false;
 Command command;
+enum class UpdateState { Idle, Preparing, Writing, Restarting };
+UpdateState updateState = UpdateState::Idle;
+uint32_t updateRestartAt = 0;
 
 struct WheelSample {
   float rpm;
@@ -249,7 +276,48 @@ esp_err_t servePage(httpd_req_t* request) {
 }
 
 bool readyToDrive() {
-  return motorsReady && calibrated && (fault == NoFault || hallOverride);
+  return updateState == UpdateState::Idle && motorsReady && calibrated && (fault == NoFault || hallOverride);
+}
+
+bool prepareFirmwareUpdate() {
+  portENTER_CRITICAL(&controlLock);
+  const bool idle = updateState == UpdateState::Idle && !command.moving() &&
+                    !bench.active() && !tuning.id && !sample.left.duty && !sample.right.duty &&
+                    std::abs(measured.left) < kMinWheelRpm && std::abs(measured.right) < kMinWheelRpm;
+  if (idle) {
+    updateState = UpdateState::Preparing;
+    command = {};
+    session = 0;
+    hallOverride = false;
+  }
+  portEXIT_CRITICAL(&controlLock);
+  if (!idle) return false;
+
+  // Wait for the control loop to confirm the outputs are idle before touching flash.
+  const uint32_t start = millis();
+  while (millis() - start < 400) {
+    portENTER_CRITICAL(&controlLock);
+    const bool writing = updateState == UpdateState::Writing;
+    portEXIT_CRITICAL(&controlLock);
+    if (writing) return true;
+    delay(kUpdatePeriodMs);
+  }
+  portENTER_CRITICAL(&controlLock);
+  const bool writing = updateState == UpdateState::Writing;
+  if (!writing) updateState = UpdateState::Idle;
+  portEXIT_CRITICAL(&controlLock);
+  return writing;
+}
+
+void finishFirmwareUpdate(bool installed) {
+  portENTER_CRITICAL(&controlLock);
+  updateState = installed ? UpdateState::Restarting : UpdateState::Idle;
+  if (installed) updateRestartAt = millis();
+  portEXIT_CRITICAL(&controlLock);
+}
+
+esp_err_t updateFirmware(httpd_req_t* request) {
+  return handleOtaUpload(request, bootId, prepareFirmwareUpdate, finishFirmwareUpdate);
 }
 
 esp_err_t replyStatus(httpd_req_t* request, uint32_t token = 0, const char* rejection = nullptr,
@@ -330,13 +398,14 @@ const char* applyDrive(const char* query) {
       !readNumber(query, "seq", sequence) || sequence == 0 ||
       !readNumber(query, "x", x) || x > 200 || !readNumber(query, "y", y) || y > 200 ||
       !readNumber(query, "rpm", speed) || speed > kMaxWheelRpm ||
-      !readNumber(query, "clear", action) || action > 2 || (action && (x != 100 || y != 100))) {
+      !readNumber(query, "clear", action) || action > kJoystickBrakeAction ||
+      (action && (x != 100 || y != 100))) {
     return "format";
   }
 
   Command next;
-  // The wheel polarities set chassis forward. Reverse the turn mix to keep the same steering.
-  next.targets = mixSpeeds(100 - static_cast<int>(x), static_cast<int>(y) - 100, speed);
+  next.brakeOnRelease = action == kJoystickBrakeAction;
+  next.targets = mixSpeeds(static_cast<int>(x) - 100, static_cast<int>(y) - 100, speed);
   char mode[2];
   const esp_err_t modeResult = httpd_query_key_value(query, "direct", mode, sizeof(mode));
   if (modeResult != ESP_ERR_NOT_FOUND) {
@@ -440,7 +509,7 @@ esp_err_t tuneDrive(httpd_req_t* request) {
   }
 
   portENTER_CRITICAL(&controlLock);
-  if (session == token && !bench.active() && !command.moving() && !tuning.id &&
+  if (updateState == UpdateState::Idle && session == token && !bench.active() && !command.moving() && !tuning.id &&
       !sample.left.duty && !sample.right.duty) {
     if (++tuneSequence == 0) ++tuneSequence;
     next.id = tuneSequence;
@@ -506,6 +575,7 @@ bool startServer() {
     {.uri = "/motion", .method = HTTP_GET, .handler = driveSocket, .is_websocket = true},
     {.uri = "/status", .method = HTTP_GET, .handler = getStatus},
     {.uri = "/tune", .method = HTTP_POST, .handler = tuneDrive},
+    {.uri = "/update", .method = HTTP_POST, .handler = updateFirmware},
   };
   for (const auto& route : routes) {
     if (httpd_register_uri_handler(server, &route) != ESP_OK) {
@@ -602,7 +672,7 @@ void handleBenchCommand(const char* line) {
 
   token = esp_random() | 1U;
   portENTER_CRITICAL(&controlLock);
-  const bool accepted = motorsReady && calibrated && fault == NoFault && !command.moving() &&
+  const bool accepted = readyToDrive() && fault == NoFault && !command.moving() &&
                         !bench.active() && !benchEnd && !tuning.id && leftWheel.duty() == 0 && rightWheel.duty() == 0 &&
                         std::abs(measured.left) < kMinWheelRpm && std::abs(measured.right) < kMinWheelRpm;
   if (accepted) {
@@ -649,13 +719,18 @@ void handleSerialCommand(char* line, bool idle) {
   if (!strcmp(line, "help")) {
     Serial.println("show | ppr l|r <pulses> | pid l|r <Kp> <Ki> <Kd> | save | log on | log pid | log off | bench status");
     Serial.println("eduroam status | eduroam forget");
+    Serial.println("ota status");
     return;
   }
   portENTER_CRITICAL(&controlLock);
-  const bool driveIdle = !command.moving() && !tuning.id;
+  const bool driveIdle = updateState == UpdateState::Idle && !command.moving() && !tuning.id;
   portEXIT_CRITICAL(&controlLock);
   if (!strncmp(line, "eduroam ", 8)) {
     handleEduroamCommand(line + 8, idle && driveIdle && !leftWheel.duty() && !rightWheel.duty());
+    return;
+  }
+  if (!strncmp(line, "ota ", 4)) {
+    handleOtaSerial(line + 4, idle && driveIdle && !leftWheel.duty() && !rightWheel.duty());
     return;
   }
   if (!idle || !driveIdle) {
@@ -737,6 +812,7 @@ void setup() {
 
   if (validPin(kLeftMotor.pwm) && validPin(kLeftMotor.direction) &&
       validPin(kRightMotor.pwm) && validPin(kRightMotor.direction) &&
+      validPin(kLeftMotor.brake) && validPin(kRightMotor.brake) &&
       GPIO_IS_VALID_GPIO(kLeftMotor.hall) && GPIO_IS_VALID_GPIO(kRightMotor.hall)) {
     const bool leftReady = leftWheel.begin();
     const bool rightReady = rightWheel.begin();
@@ -770,14 +846,19 @@ void loop() {
   portENTER_CRITICAL(&controlLock);
   const uint32_t now = millis();
   expireCommand(now);
+  const bool preparingUpdate = updateState == UpdateState::Preparing;
+  const bool restartAfterUpdate = updateState == UpdateState::Restarting && now - updateRestartAt >= 300;
   const bool ready = readyToDrive();
   const bool hardwareReady = motorsReady;
   const float dutyLimit = bench.active() ? kBenchDutyLimit : kMaxDutyFraction;
   const bool bypassLeft = hallOverride && (fault & LeftHall);
   const bool bypassRight = hallOverride && (fault & RightHall);
+  const bool releaseBrake = ready && command.brakeOnRelease && now - command.receivedAt < kJoystickBrakeMs;
   WheelSpeeds targets = ready ? command.targets : WheelSpeeds{};
   const TuneRequest pendingTune = tuning;
   portEXIT_CRITICAL(&controlLock);
+
+  if (restartAfterUpdate) esp_restart();
 
   const int64_t nowUs = esp_timer_get_time();
   static int64_t lastUpdateUs = 0;
@@ -787,8 +868,8 @@ void loop() {
   lastUpdateUs = nowUs;
 
   if (hardwareReady) {
-    const WheelResult leftResult = leftWheel.update(targets.left, now, nowUs, seconds, bypassLeft, dutyLimit);
-    const WheelResult rightResult = rightWheel.update(targets.right, now, nowUs, seconds, bypassRight, dutyLimit);
+    const WheelResult leftResult = leftWheel.update(targets.left, now, nowUs, seconds, bypassLeft, dutyLimit, releaseBrake);
+    const WheelResult rightResult = rightWheel.update(targets.right, now, nowUs, seconds, bypassRight, dutyLimit, releaseBrake);
     if (leftResult != WheelResult::Ok || rightResult != WheelResult::Ok) {
       const auto leftStop = leftWheel.coast(now);
       const auto rightStop = rightWheel.coast(now);
@@ -831,6 +912,10 @@ void loop() {
   sample = {now, targets,
             {measured.left, leftWheel.duty(), leftWheel.pidTerms(), leftWheel.tune},
             {measured.right, rightWheel.duty(), rightWheel.pidTerms(), rightWheel.tune}};
+  if (preparingUpdate && updateState == UpdateState::Preparing && !sample.left.duty && !sample.right.duty &&
+      std::abs(measured.left) < kMinWheelRpm && std::abs(measured.right) < kMinWheelRpm) {
+    updateState = UpdateState::Writing;
+  }
   if (pendingTune.id) {
     finishedTune = pendingTune.id;
     tuneSucceeded = tuningOk;

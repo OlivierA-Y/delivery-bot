@@ -1,0 +1,18 @@
+{
+  "left_wheel_radius_m": null,
+  "right_wheel_radius_m": null,
+  "track_width_m": null,
+  "left_ticks_per_rev": 90,
+  "right_ticks_per_rev": 90,
+  "left_encoder_sign": 1,
+  "right_encoder_sign": 1,
+  "max_plausible_wheel_rps": 4,
+  "lidar": {
+    "x_m": null,
+    "y_m": null,
+    "z_m": 0.0,
+    "roll_deg": 0.0,
+    "pitch_deg": 0.0,
+    "yaw_deg": null
+  }
+}

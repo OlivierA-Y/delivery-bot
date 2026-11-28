@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HotelBot · Pi–ESP32 USB protocol</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f4ef;
+      --panel: #fffefa;
+      --ink: #233137;
+      --muted: #546269;
+      --line: #c8d0cd;
+      --out: #2e5c85;
+      --in: #266b5e;
+      --event: #8e501e;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 2rem 1rem; background: var(--paper); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+    main { max-width: 72rem; margin: auto; }
+    header { margin-bottom: 1.5rem; }
+    a { color: var(--out); text-underline-offset: .17em; }
+    h1 { margin: .45rem 0 .25rem; font-size: clamp(1.75rem, 5vw, 2.7rem); letter-spacing: -.04em; line-height: 1.12; }
+    p { margin: .4rem 0; }
+    header p, .hint { color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; gap: 1.2rem; }
+    .sequence, .detail { min-width: 0; padding: clamp(.85rem, 3vw, 1.4rem); border: 1px solid var(--line); background: var(--panel); border-radius: .5rem; }
+    .endpoints { display: flex; justify-content: space-between; gap: .5rem; font-weight: 700; }
+    .phase { margin-top: .95rem; border-top: 1px solid var(--line); }
+    .phase h2 { margin: .65rem 0 .35rem; font-size: .85rem; color: var(--muted); }
+    .message { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: center; width: 100%; margin: .18rem 0; padding: .35rem .55rem; border: 1px solid transparent; border-radius: .35rem; background: transparent; color: var(--out); cursor: pointer; text-align: left; }
+    .message[data-direction="in"] { color: var(--in); }
+    .message[data-direction="event"] { color: var(--event); }
+    .message[aria-pressed="true"] { border-color: currentColor; background: #f0f3ef; }
+    .message:hover { background: #edf1ed; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--out); outline-offset: 2px; }
+    code { font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+    .message code { font-size: .88rem; font-weight: 650; }
+    .route { font-size: .78rem; white-space: nowrap; }
+    .message[data-direction]:not([data-direction="event"])::after {
+      content: ""; grid-column: 1 / -1; height: 7px;
+      background: currentColor; clip-path: polygon(0 42%, calc(100% - 8px) 42%, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, calc(100% - 8px) 58%, 0 58%);
+    }
+    .message[data-direction="in"]::after { transform: scaleX(-1); }
+    .detail { position: sticky; top: 1rem; }
+    .detail h2 { margin: .15rem 0 .4rem; font-size: 1.35rem; overflow-wrap: anywhere; }
+    .detail h3 { margin: 1rem 0 .35rem; font-size: .9rem; }
+    .detail ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+    .detail li + li { margin-top: .35rem; }
+    pre { margin: 0; padding: .75rem; background: #edf0ec; border-radius: .25rem; font-size: .8rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .back { display: none; }
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+      .detail { position: static; scroll-margin-top: .75rem; }
+      .back { display: inline-block; margin-top: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <a href="../../documentation.html">HotelBot documentation</a>
+      <h1>Pi–ESP32 USB protocol</h1>
+      <p>Proposed v1 for the Pi bridge and ESP32 drive firmware. One USB serial connection, one JSON object per line.</p>
+      <p class="hint">Select a message to see its fields and how the receiving side should handle it.</p>
+    </header>
+    <div class="layout">
+      <section class="sequence" id="sequence" aria-label="Message sequence">
+        <div class="endpoints"><span>Raspberry Pi</span><span>ESP32</span></div>
+      </section>
+      <section class="detail" id="details" aria-labelledby="detail-title" tabindex="-1">
+        <div aria-live="polite">
+          <div class="hint" id="detail-direction"></div>
+          <h2 id="detail-title"></h2>
+          <p id="detail-summary"></p>
+        </div>
+        <h3>Handling</h3>
+        <ul id="handling"></ul>
+        <div id="sample">
+          <h3>Example payload</h3>
+          <pre><code id="payload"></code></pre>
+          <p class="hint">Shown formatted for reading. Send as a single line ending in LF.</p>
+        </div>
+        <a class="back" href="#sequence">Back to messages ↑</a>
+      </section>
+    </div>
+  </main>
+  <script>
+    const session = "s1";
+    const boot = "b7";
+    // The speed and position examples are alternative branches after arm.
+    const commands = {
+      hello: {
+        direction: "out",
+        summary: "Open a new application session after connecting or reconnecting.",
+        handling: [
+          "The Pi generates a fresh session ID for every connection and waits for the matching acknowledgement.",
+          "The ESP32 accepts a supported protocol version, cancels any previous motion, zeros throttle, and starts the new session disarmed.",
+          "Unsupported versions leave drive inhibited. The Pi should retry the handshake without sending motion commands."
+        ],
+        payload: { type: "hello", v: 1, session }
+      },
+      hello_ack: {
+        direction: "in",
+        summary: "Confirm the version, board boot identity, and available drive commands.",
+        handling: [
+          "The Pi checks the echoed session and version. Ignore replies for previous connection attempts.",
+          "Save the boot ID and capability list. Enable the position UI only if move_wheels is advertised.",
+          "Wait for fresh, healthy state before offering to arm. A successful handshake never arms the motors."
+        ],
+        payload: { type: "hello_ack", v: 1, session, boot, capabilities: ["set_wheel_speeds", "move_wheels"] }
+      },
+      arm: {
+        direction: "out",
+        summary: "Enable motion for a ready, fault-free board in the current session.",
+        handling: [
+          "The Pi requires an explicit enable plus fresh state and the checks for the selected mode.",
+          "The ESP32 validates the session and sequence, confirms readiness and no blocking faults, then marks the session armed with both targets at zero.",
+          "The Pi waits for state.armed and the accepted sequence before sending motion."
+        ],
+        payload: { type: "arm", session, seq: 1 }
+      },
+      set_wheel_speeds: {
+        direction: "out",
+        summary: "Stream a signed speed target for each wheel, in degrees per second.",
+        handling: [
+          "The Pi starts at 25 Hz using the latest permitted targets. Positive values mean wheel rotation that drives the chassis forward.",
+          "The ESP32 requires an armed session, a fresh sequence, and two finite targets within configured limits. Apply both targets together and refresh the speed-mode watchdog.",
+          "While a position move is active, reject speed commands. The Pi must stop and re-arm to interrupt that move. If upstream velocity goes stale, send zero and stop feeding nonzero targets."
+        ],
+        payload: { type: "set_wheel_speeds", session, seq: 2, left_deg_s: 90, right_deg_s: 110 }
+      },
+      move_wheels: {
+        direction: "out",
+        summary: "Request one paired relative move, in wheel degrees, for supervised bench use.",
+        handling: [
+          "The Pi sends a unique move ID once both wheels are stopped and the position capability is enabled. Supply both angles and a finite, positive speed cap.",
+          "The ESP32 checks readiness and limits, captures both signed Hall-count baselines once, and coordinates the speed profiles. A repeated move ID returns its known status without relatching targets.",
+          "The Pi matches status by move ID. The move ends when both wheels are within tolerance, or reports canceled or fault if interrupted."
+        ],
+        payload: { type: "move_wheels", session, seq: 2, move_id: "m1", left_deg: -45, right_deg: 45, max_deg_s: 90 }
+      },
+      keepalive: {
+        direction: "out",
+        summary: "Keep an accepted relative wheel move alive while the Pi still permits motion.",
+        handling: [
+          "The Pi sends fresh sequence numbers with the active move ID while it sees fresh state and still permits the move.",
+          "The ESP32 refreshes the watchdog only for a matching active move in the current session. Ignore stale or mismatched messages.",
+          "This message never starts a move, changes wheel targets, or extends a speed-mode command."
+        ],
+        payload: { type: "keepalive", session, seq: 3, move_id: "m1" }
+      },
+      state: {
+        direction: "in",
+        summary: "Report telemetry and the result of accepted commands during idle or motion.",
+        handling: [
+          "The ESP32 publishes periodic snapshots. Include signed cumulative Hall counts, measured speeds, sample time, boot ID, armed state, mode, last accepted sequence and faults. Report the move ID and its status during and after a position move.",
+          "The Pi discards stale or wrong-session snapshots. Use fresh count deltas for odometry and the last accepted sequence and move status for acknowledgement.",
+          "A changed boot ID, counter discontinuity or timeout invalidates the motion session and count baseline. Inhibit drive and establish a fresh baseline before re-arming."
+        ],
+        payload: { type: "state", session, boot, sample_ms: 1280, left_count: 16, right_count: 21, left_deg_s: 89, right_deg_s: 109, armed: true, mode: "speed", last_seq: 2, move_id: null, move_status: null, faults: [] }
+      },
+      stop: {
+        direction: "out",
+        summary: "Cancel motion and return the controller to a disarmed state.",
+        handling: [
+          "The Pi stops sending motion or keepalive messages immediately and sends stop if the port is writable.",
+          "On a valid stop for the active session, the ESP32 zeros throttle, cancels any move, and disarms. A repeated stop is harmless.",
+          "Report the new state and canceled move ID if applicable. Require a fresh arm. The wheels may coast after throttle goes to zero."
+        ],
+        payload: { type: "stop", session, seq: 4 }
+      },
+      timeout: {
+        direction: "event",
+        title: "USB loss or watchdog timeout",
+        summary: "Local behavior when either side loses the stream.",
+        handling: [
+          "If state goes stale, the Pi inhibits drive, drops queued motion and sends stop if possible. On port loss, reopen and create a fresh session.",
+          "The ESP32 cuts throttle, cancels any move and disarms when the active mode misses its watchdog deadline. The proposed initial deadline is 250 ms. Verify it on the bench.",
+          "After reconnect, wait for hello_ack and fresh state, take a new count baseline, and require an explicit arm. Never replay a move from the old session."
+        ]
+      }
+    };
+    const phases = [
+      ["Connect and enable", [
+        "hello", "hello_ack",
+        ["state", { sample_ms: 1010, left_count: 0, right_count: 0, left_deg_s: 0, right_deg_s: 0, armed: false, mode: "idle", last_seq: null }],
+        "arm",
+        ["state", { sample_ms: 1050, left_count: 0, right_count: 0, left_deg_s: 0, right_deg_s: 0, mode: "idle", last_seq: 1 }]
+      ]],
+      ["Speed mode · repeating", ["set_wheel_speeds", "state"]],
+      ["Position mode · alternative to speed mode", ["move_wheels", "keepalive", ["state", { sample_ms: 1320, left_count: -6, right_count: 6, left_deg_s: -89, right_deg_s: 90, mode: "position", last_seq: 3, move_id: "m1", move_status: "moving" }]]],
+      ["Stop and recover", ["stop", ["state", { sample_ms: 1400, left_count: -9, right_count: 9, left_deg_s: 0, right_deg_s: 0, armed: false, mode: "idle", last_seq: 4, move_id: "m1", move_status: "canceled" }], "timeout"]]
+    ];
+    const directions = {
+      out: "Pi → ESP32", in: "ESP32 → Pi", event: "Local event"
+    };
+
+    const sequence = document.getElementById("sequence");
+    const details = document.getElementById("details");
+    const title = document.getElementById("detail-title");
+    const direction = document.getElementById("detail-direction");
+    const summary = document.getElementById("detail-summary");
+    const handling = document.getElementById("handling");
+    const sample = document.getElementById("sample");
+    const payload = document.getElementById("payload");
+    const buttons = [];
+
+    function select(selected, overrides, activated) {
+      const message = selected.dataset.message;
+      const entry = commands[message];
+      for (const button of buttons) {
+        button.setAttribute("aria-pressed", String(button === selected));
+      }
+      direction.textContent = directions[entry.direction];
+      title.textContent = entry.title ?? message;
+      summary.textContent = entry.summary;
+      handling.replaceChildren(...entry.handling.map(text => {
+        const item = document.createElement("li");
+        item.textContent = text;
+        return item;
+      }));
+      sample.hidden = !entry.payload;
+      payload.textContent = entry.payload ? JSON.stringify({ ...entry.payload, ...overrides }, null, 2) : "";
+      if (activated && matchMedia("(max-width: 760px)").matches) details.focus();
+    }
+
+    for (const [label, messages] of phases) {
+      const phase = document.createElement("section");
+      phase.className = "phase";
+      const heading = document.createElement("h2");
+      heading.textContent = label;
+      phase.append(heading);
+      for (const step of messages) {
+        const [message, overrides] = Array.isArray(step) ? step : [step, {}];
+        const entry = commands[message];
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "message";
+        button.dataset.message = message;
+        button.dataset.direction = entry.direction;
+        button.setAttribute("aria-controls", "details");
+        const name = document.createElement(entry.payload ? "code" : "span");
+        name.textContent = entry.title ?? message;
+        const route = document.createElement("span");
+        route.className = "route";
+        route.textContent = directions[entry.direction];
+        button.append(name, route);
+        button.addEventListener("click", () => select(button, overrides, true));
+        buttons.push(button);
+        phase.append(button);
+      }
+      sequence.append(phase);
+    }
+    select(buttons[0], {}, false);
+  </script>
+</body>
+</html>

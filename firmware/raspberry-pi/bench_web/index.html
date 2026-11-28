@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>HotelBot · Wheel bench</title>
+  <link rel="stylesheet" href="/bench.css">
+  <script src="/bench.js" defer></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div>
+        <span class="wordmark">HotelBot</span>
+        <h1>Wheel bench</h1>
+      </div>
+      <div class="connection">
+        <a class="meta" href="/drive">Remote control ↗</a>
+        <span id="board-status" class="status">Connecting</span>
+        <span id="boot" class="meta">ESP32</span>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Wheel controls">
+      <div class="target-controls">
+        <h2>Speed targets</h2>
+        <p>Positive turns the wheel forward. Zero leaves it unpowered.</p>
+        <div class="targets">
+          <label for="left-target">Left wheel <span>°/s</span></label>
+          <input id="left-target" type="number" min="-120" max="120" step="any" value="0">
+          <label for="right-target">Right wheel <span>°/s</span></label>
+          <input id="right-target" type="number" min="-120" max="120" step="any" value="0">
+        </div>
+        <div class="presets" aria-label="Speed presets at 60 degrees per second">
+          <button type="button" data-targets="60,0">Left only</button>
+          <button type="button" data-targets="0,60">Right only</button>
+          <button type="button" data-targets="60,60">Both forward</button>
+          <button type="button" data-targets="-60,-60">Both reverse</button>
+        </div>
+      </div>
+      <div class="run-controls">
+        <label class="lifted">
+          <input type="checkbox" id="lifted" autocomplete="off">
+          <span>Both wheels are secured off the ground.</span>
+        </label>
+        <div class="actions">
+          <button type="button" id="hold" class="hold" disabled>Hold to run</button>
+          <button type="button" id="stop" class="stop">Stop</button>
+        </div>
+        <div class="timer">
+          <progress id="elapsed" aria-label="Test elapsed time" max="4" value="0"></progress>
+          <span id="timer-label">0.0 / 4.0 s</span>
+        </div>
+        <p class="hint">Release to stop. The wheels can coast after throttle cuts.</p>
+        <p id="message" class="message" role="status">Waiting for ESP32 telemetry.</p>
+      </div>
+    </section>
+
+    <section class="telemetry" aria-labelledby="telemetry-title">
+      <header class="telemetry-head">
+        <h2 id="telemetry-title">Live telemetry</h2>
+        <div class="legend"><span class="actual-line"></span> Measured <span class="target-line"></span> Target</div>
+      </header>
+      <div class="wheels">
+        <article class="wheel">
+          <h3>Left wheel</h3>
+          <div class="metrics">
+            <div><output id="left-speed">—</output> <span>°/s</span><small>Measured speed</small></div>
+            <div><output id="left-count">—</output><small>Hall count</small></div>
+          </div>
+          <canvas id="left-chart" aria-label="Left wheel speed history" role="img"></canvas>
+        </article>
+        <article class="wheel">
+          <h3>Right wheel</h3>
+          <div class="metrics">
+            <div><output id="right-speed">—</output> <span>°/s</span><small>Measured speed</small></div>
+            <div><output id="right-count">—</output><small>Hall count</small></div>
+          </div>
+          <canvas id="right-chart" aria-label="Right wheel speed history" role="img"></canvas>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

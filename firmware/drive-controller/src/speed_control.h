@@ -16,8 +16,12 @@ struct WheelSpeeds {
 };
 
 inline WheelSpeeds mixSpeeds(int turn, int forward, int limitRpm) {
-  const float left = (forward + turn) / 100.f;
-  const float right = (forward - turn) / 100.f;
+  // Keep the established pivot direction near horizontal. Blend into the
+  // opposite steering sense as the joystick moves toward forward or reverse.
+  const float arc = std::min(std::abs(forward) / std::max(1.f, .5f * std::abs(turn)), 1.f);
+  const float steering = turn * (2.f * arc - 1.f);
+  const float left = (forward + steering) / 100.f;
+  const float right = (forward - steering) / 100.f;
   const float scale = limitRpm / std::max({1.f, std::abs(left), std::abs(right)});
   return {left * scale, right * scale};
 }

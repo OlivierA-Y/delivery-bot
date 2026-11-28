@@ -2,6 +2,9 @@
 
 ## System and Waveshare ESP32-S3-Zero
 
+- [Pi drive-controller firmware](firmware/pi-drive-controller/README.md) — DevKit V1 and S3 USB serial, signed Hall feedback, and bench commissioning.
+- [Raspberry Pi drive bench](firmware/raspberry-pi/README.md) — Stage 1 USB checks, wheel tests, and hardware checklist.
+
 - [System diagram](models/motor-mount/system-diagram.html) — Pi, ESP32, power and the proposed USB control interface.
 - [Full wiring schematic](models/motor-mount/full-wiring.html) — battery, both motors, six Hall taps, connector pinouts and Pi peripherals.
 - [Waveshare wiring and setup guide](models/motor-mount/wiring-guide.html) — GPIO assignments, signal circuits and bench checks.

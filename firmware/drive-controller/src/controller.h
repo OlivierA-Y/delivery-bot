@@ -146,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let tuningRequest = null;
   let gainsLoaded = false;
   const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+  const joystickBrakeAction = 3;
   const keys = new Set();
   let session = 0;
   let sequence = 0;
@@ -393,8 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
 
-  function release(clear = false) {
-    const sendStop = held || clear;
+  function release(action = 0) {
+    const sendStop = held || action !== 0;
     pointer = null;
     keys.clear();
     held = false;
@@ -403,7 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setStick(0, 0);
     stick.removeAttribute('data-held');
     run.removeAttribute('data-held');
-    const action = clear ? 1 : 0;
     if (session && sendStop && !sendMotion(action)) transmit(action, AbortSignal.timeout(300)).catch(() => {});
     updateButtons();
   }
@@ -505,7 +505,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   stick.addEventListener('pointermove', event => { if (pointer === event.pointerId) track(event); });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-    stick.addEventListener(name, event => { if (pointer === event.pointerId) release(); });
+    stick.addEventListener(name, event => {
+      if (pointer === event.pointerId) release(name === 'pointerup' ? joystickBrakeAction : 0);
+    });
   }
   stick.addEventListener('contextmenu', event => event.preventDefault());
 
@@ -550,12 +552,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (runKey === event.key) { release(); return; }
     if (!keys.delete(event.key)) return;
     if (keys.size) keyboardStick();
-    else release();
+    else release(joystickBrakeAction);
   });
 
   stop.addEventListener('click', () => {
     driveNotice = '';
-    release(true);
+    release(1);
   });
   overrideButton.addEventListener('click', async () => {
     if (!session || overridePending || held || overrideButton.hidden) return;
@@ -642,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <header>
     <h1>HotelBot<br>Drive</h1>
     <p id="status" role="status">Connecting…</p>
-    <p class="guide">Drag to drive. Release to coast.</p>
+    <p class="guide">Drag to drive. Release to brake.</p>
     <dl class="wheel-speeds" aria-label="Estimated and target wheel RPM">
       <div><dt>Left RPM</dt><dd id="left-rpm">— / —</dd></div>
       <div><dt>Right RPM</dt><dd id="right-rpm">— / —</dd></div>

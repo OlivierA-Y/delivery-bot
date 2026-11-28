@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>HotelBot · Remote control</title>
+  <link rel="stylesheet" href="/bench.css">
+  <link rel="stylesheet" href="/drive.css">
+  <script src="/drive.js" defer></script>
+</head>
+<body>
+  <main class="drive-main">
+    <nav class="drive-nav" aria-label="HotelBot tools">
+      <span class="wordmark">HotelBot</span>
+      <a href="/">Wheel bench <span aria-hidden="true">↗</span></a>
+    </nav>
+    <header class="masthead">
+      <div>
+        <h1>Remote control</h1>
+        <p>Drag the joystick to drive. Release to stop.</p>
+      </div>
+      <span id="connection" class="status">Connecting</span>
+    </header>
+    <div class="drive-layout">
+      <section class="drive-panel" aria-labelledby="drive-heading">
+        <h2 id="drive-heading">Joystick</h2>
+        <label class="lifted drive-clear">
+          <input id="clear" type="checkbox" autocomplete="off">
+          <span>I can see the robot and the area is clear.</span>
+        </label>
+        <div class="stick-area">
+          <span class="stick-label stick-up" aria-hidden="true">↑</span>
+          <span class="stick-label stick-left" aria-hidden="true">←</span>
+          <button type="button" id="stick" class="stick" aria-label="Drive joystick"
+             aria-keyshortcuts="ArrowUp ArrowLeft ArrowDown ArrowRight W A S D"
+             aria-describedby="drive-keys" disabled>
+            <span id="stick-knob" class="stick-knob" aria-hidden="true"></span>
+          </button>
+          <span class="stick-label stick-right" aria-hidden="true">→</span>
+          <span class="stick-label stick-down" aria-hidden="true">↓</span>
+        </div>
+        <button type="button" id="drive-stop" class="drive-stop" aria-keyshortcuts="Escape">
+          <span aria-hidden="true">■</span> Stop
+        </button>
+        <p id="drive-message" class="message" role="status">Waiting for ESP32 telemetry.</p>
+        <p id="drive-keys" class="hint">Hold arrow keys or WASD to drive. Press <kbd>Esc</kbd> to stop.</p>
+      </section>
+      <aside class="drive-sidebar" aria-label="Speed and feedback">
+        <section class="drive-panel" aria-labelledby="speed-heading">
+          <div class="drive-panel-head">
+            <h2 id="speed-heading"><label for="throttle">Throttle</label></h2>
+            <output id="throttle-value" for="throttle">15 RPM</output>
+          </div>
+          <input type="range" id="throttle" class="drive-throttle" min="0" max="200" step="1" value="15" autocomplete="off">
+          <div class="throttle-scale" aria-hidden="true"><span>0</span><span id="throttle-max">200 RPM max</span></div>
+        </section>
+        <section class="drive-panel" aria-labelledby="feedback-heading">
+          <div class="drive-panel-head">
+            <h2 id="feedback-heading">Wheel feedback</h2>
+            <span class="meta">RPM</span>
+          </div>
+          <dl class="drive-readouts">
+            <div><dt>Left wheel</dt><dd><output id="drive-left">—</output></dd><dd class="meta">Target <output id="drive-left-target">0</output></dd></div>
+            <div><dt>Right wheel</dt><dd><output id="drive-right">—</output></dd><dd class="meta">Target <output id="drive-right-target">0</output></dd></div>
+          </dl>
+          <p class="hint">Wheels can coast after throttle cuts.</p>
+        </section>
+      </aside>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build a Raspberry Pi delivery robot from scratch</title>
+  <style>
+    :root { color-scheme: light; background: #f8f7f3; color: #212824; font: 17px/1.65 system-ui, sans-serif; }
+    body { margin: 0; }
+    main { max-width: 790px; margin: auto; padding: 3rem 1.25rem 4rem; }
+    h1, h2, h3 { line-height: 1.2; text-wrap: balance; }
+    h1 { margin: 0 0 1rem; font-size: clamp(2.25rem, 5vw, 3.5rem); letter-spacing: -.045em; }
+    h2 { margin: 0 0 1rem; font-size: 1.65rem; }
+    h3 { font-size: 1.08rem; margin: 1.45rem 0 .4rem; }
+    p, ul, ol, pre { margin: .7rem 0 1rem; }
+    li + li { margin-top: .35rem; }
+    nav { padding: .9rem 0; border-block: 1px solid #cbd2ca; }
+    nav ul { display: flex; flex-wrap: wrap; gap: .35rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    nav li { margin: 0; }
+    section { padding-top: 2.2rem; }
+    section + section { margin-top: 1.8rem; border-top: 1px solid #cbd2ca; }
+    a { color: #215c46; text-underline-offset: .18em; }
+    code, pre { font-family: ui-monospace, monospace; font-size: .9em; }
+    p code, li code { overflow-wrap: anywhere; }
+    pre { padding: .85rem 1rem; background: #eaece5; border-radius: .35rem; overflow: auto; }
+    pre code { font-size: inherit; }
+    .check { border-left: .2rem solid #487a60; padding-left: .9rem; }
+    .sources { font-size: .92rem; }
+    @media print {
+      :root { background: white; color: black; font-size: 11pt; }
+      main { padding: 0; }
+      h2, h3 { break-after: avoid; }
+      pre { white-space: pre-wrap; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Build a Raspberry Pi delivery robot from scratch</h1>
+    <p>Start with a Pi 4B, a blank microSD card, an ESP32, two independently driven wheels with signed position feedback, and a USB-connected LD19 LiDAR. Use ROS 2 Jazzy, SLAM Toolbox, and Nav2 for the robotics stack. Write the ESP32 firmware, the Pi’s drive bridge, and the delivery program yourself. The first goal is a delivery between two named points on one floor.</p>
+  </header>
+  <nav aria-label="Guide sections">
+    <ul>
+      <li><a href="#pi">Pi setup</a></li>
+      <li><a href="#drive">Drive and odometry</a></li>
+      <li><a href="#slam">SLAM</a></li>
+      <li><a href="#nav">Navigation</a></li>
+      <li><a href="#delivery">Delivery program</a></li>
+    </ul>
+  </nav>
+
+  <section id="pi">
+    <h2>1. Prepare the Pi and create a workspace</h2>
+    <p>Flash <strong>Ubuntu Server 24.04 ARM64</strong> with Raspberry Pi Imager. Enable SSH at provisioning and use Ethernet for first boot if available. SSH lets you develop from your laptop with the Pi mounted on the chassis. Use the Pi 4’s recommended 3 A USB-C supply during bench work and leave motor power disconnected. This gives you a known power source while you debug the USB devices. <a href="https://ubuntu.com/tutorials/how-to-install-ubuntu-on-your-raspberry-pi">Ubuntu flashing and SSH guide</a> · <a href="https://www.raspberrypi.com/documentation/computers/getting-started.html#power-supply">Pi power specifications</a></p>
+
+    <p>Follow the Jazzy installation guide through adding the ROS apt repository. Then install the headless ROS runtime, mapping and navigation packages, and build tools. Run RViz on a Jazzy workstation if you want the Pi to stay headless. If RViz is remote, verify the two machines can discover each other on the same ROS domain. <a href="https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html">Jazzy apt setup</a></p>
+    <pre><code>sudo apt install ros-jazzy-ros-base ros-jazzy-slam-toolbox \
+  ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+  python3-serial python3-colcon-common-extensions python3-rosdep
+source /opt/ros/jazzy/setup.bash</code></pre>
+
+    <p>Create a workspace such as <code>~/delivery_ws/src</code>. Put your own <code>ament_python</code> package there, with entry points for <code>drive_bridge</code> and <code>delivery</code>. Keep the serial codec and differential-drive math as ordinary Python modules so you can test them on a laptop without hardware. Put the ESP32 firmware in a separate project and keep your launch files, robot measurements, and navigation parameters under version control. <a href="https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html">Creating a ROS 2 package</a></p>
+
+    <p>Plug the ESP32 and LiDAR adapter in one at a time and compare <code>ls -l /dev/serial/by-path/</code> before and after. Record and label the physical ports so the drive bridge and the LiDAR driver open the right devices regardless of USB enumeration order. On Ubuntu, add your account to <code>dialout</code> if it lacks serial access, then reconnect to pick up the group membership.</p>
+  </section>
+
+  <section id="drive">
+    <h2>2. Write the wheel firmware and Pi bridge</h2>
+    <h3>ESP32 firmware</h3>
+    <p>Wire each motor driver according to its datasheet and verify voltage levels on the feedback and control signals. Start the firmware with outputs disabled. Decode each wheel’s Hall or encoder transitions into a signed cumulative count. With motor power off, rotate each wheel several full turns and measure counts per revolution and which sign corresponds to chassis-forward motion. Use changes in count over time to estimate wheel speed, then implement a PI loop per wheel that adjusts PWM toward its commanded speed.</p>
+
+    <p>Define a small USB protocol before writing the ROS node. At 115200 baud, newline-delimited JSON is easy to inspect on a bench. Start with five messages.</p>
+    <ul>
+      <li><strong>Hello</strong> starts a fresh, disarmed session. The reply includes a protocol version and a boot ID that changes on reset.</li>
+      <li><strong>State</strong> reports the boot ID, sample time, both signed counts, measured speeds, arm state and faults.</li>
+      <li><strong>Arm</strong> explicitly enables an otherwise healthy controller.</li>
+      <li><strong>Speed</strong> carries two signed wheel targets, a session ID and a sequence number.</li>
+      <li><strong>Stop</strong> zeros the drive output and disarms.</li>
+    </ul>
+    <p>Give the ESP32 its own command watchdog so a frozen Pi or pulled cable cuts drive output. Use a bounded frame size, reject invalid or out-of-order targets, and refresh the watchdog only on accepted drive commands. After a timeout, fault or reconnect, require a fresh session and an explicit arm. Verify the physical power disconnect independently.</p>
+
+    <h3>Pi drive bridge</h3>
+    <p>First write a read-only serial tool that performs the handshake and prints encoder samples as you turn the wheels. Then make a ROS node that owns the serial port, publishes <code>/odom</code> as <code>nav_msgs/Odometry</code>, and broadcasts <code>odom → base_link</code>. Put <code>base_link</code> at the drive axle midpoint. Measure each wheel’s loaded radius and the center-to-center track width. With left and right travel distances <code>dL</code> and <code>dR</code>, use their mean for forward travel and <code>(dR - dL) / track_width</code> for heading change. Integrate the forward increment at the midpoint heading. Convert counts to distance using each wheel’s measured circumference and counts per revolution. On reset or a bad sample gap, rebaseline the counts and preserve the last pose.</p>
+
+    <p>For the command side, let <code>v</code> be forward velocity, <code>w</code> yaw rate, and <code>b</code> track width. The target ground speeds are <code>v - w*b/2</code> for the left wheel and <code>v + w*b/2</code> for the right. Divide by each wheel’s radius for rad/s. Scale both targets by the same factor if either exceeds the configured limit. Give the bridge a deadline on incoming commands and encoder feedback so it stops sending motion when either stream goes stale. <a href="https://control.ros.org/jazzy/doc/ros2_controllers/doc/mobile_robot_kinematics.html">Differential-drive kinematics</a></p>
+    <p class="check"><strong>Bench check.</strong> A hand-pushed straight roll increases odometry x when starting at yaw zero. A left pivot increases yaw. With wheels secured off the ground, confirm each commanded direction and verify that stop, command loss, and USB loss cut drive output. Check that reconnect starts disarmed.</p>
+  </section>
+
+  <section id="slam">
+    <h2>3. Map one floor with SLAM Toolbox</h2>
+    <p>Build the manufacturer’s LD19 ROS 2 driver in your workspace with <code>colcon</code>. Use its LD19 launch example and set your actual serial path. If the vendor logger fails to compile on Ubuntu 24.04 with missing <code>pthread_*</code> declarations, include <code>&lt;pthread.h&gt;</code> in the logger source and rebuild. Source the workspace’s <code>install/setup.bash</code> in terminals that use the driver. Check that it publishes <code>sensor_msgs/LaserScan</code> on <code>/scan</code> with the frame ID you configured, for example <code>base_laser</code>. Look at a wall in RViz and confirm it appears on the correct side of the robot before tuning the mapper. <a href="https://github.com/ldrobotSensorTeam/ldlidar_stl_ros2">LDROBOT driver and LD19 launch example</a></p>
+
+    <p>Publish the measured static transform <code>base_link → base_laser</code> with <code>tf2_ros</code> or a fixed joint in a URDF. The transform lets ROS place each laser ray relative to the chassis. Start SLAM Toolbox in online asynchronous mapping mode. Set its <code>scan_topic</code> to <code>/scan</code> and its frames to <code>map</code>, <code>odom</code>, and <code>base_link</code>. Your bridge supplies local odometry from the wheels. SLAM Toolbox compares scans and corrects accumulated drift through <code>map → odom</code>. <a href="https://github.com/SteveMacenski/slam_toolbox">SLAM Toolbox launch files and parameters</a></p>
+
+    <p>Push the robot slowly around a room with motor drive disabled and encoder feedback available. Revisit a wall you scanned early so the mapper can recognize the overlap. If the map shows doubled walls, check LiDAR orientation, wheel scale and yaw before changing SLAM parameters. Save the occupancy grid while the mapper is running. Keep the image and YAML together. The YAML records the resolution and origin Nav2 uses to place the map.</p>
+    <pre><code>mkdir -p ~/maps
+ros2 run nav2_map_server map_saver_cli -t /map -f ~/maps/floor-1</code></pre>
+    <p class="check"><strong>Mapping check.</strong> After a loop, revisited walls line up in RViz and the saved YAML points to an image that reflects the room you surveyed.</p>
+  </section>
+
+  <section id="nav">
+    <h2>4. Localize on the saved map and run Nav2</h2>
+    <p>Keep the LiDAR, wheel odometry and static sensor transform running. Stop the SLAM process and bring up Nav2 with your saved map and parameters. Map Server publishes the saved grid. AMCL compares live scans to that grid and takes ownership of <code>map → odom</code>. Set an approximate initial pose in RViz with <strong>2D Pose Estimate</strong>, then hand-roll the chassis a short distance to verify the scan stays aligned with the map. <a href="https://docs.nav2.org/jazzy/configuration_and_development/configuration_guide/others/configuring_amcl/">AMCL parameters</a></p>
+
+    <p>Start your Nav2 YAML from the Jazzy example. Set AMCL’s base frame and Nav2’s robot base frames to <code>base_link</code>, and point the odometry consumers at <code>/odom</code>. Set the global costmap frame to <code>map</code> and the local costmap frame to <code>odom</code>. Configure the costmaps to observe <code>/scan</code> and give them a measured polygon footprint, including the overhang past the axle. Start with low speed and acceleration limits. The footprint matters because the corner of the chassis can sweep a much larger arc than the wheels during a turn. <a href="https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_bringup/params/nav2_params.yaml">Jazzy parameter example</a> · <a href="https://docs.nav2.org/jazzy/configuration_and_development/first_time_robot_setup_guide/footprint/setup_footprint/">Footprint setup</a></p>
+
+    <p>Route the velocity output through Collision Monitor and give its output a dedicated topic that only it publishes. The bridge subscribes to that final topic. Set up a scan timeout and an obstacle stop zone, and explicitly match the velocity message type across the Nav2 components and your bridge. Check the live topic names, types, and publishers with <code>ros2 topic info -v</code>. If you add teleop, select between it and autonomous drive upstream of Collision Monitor so both use the same final path. <a href="https://docs.nav2.org/jazzy/configuration_and_development/configuration_guide/core_servers/collision_monitor/configuring_collision_monitor_node/">Collision Monitor configuration</a></p>
+    <p>Once you’ve saved your edited parameters as <code>~/nav2.yaml</code>, launch the localization and navigation nodes together. This gives both the same robot parameters and starts Map Server with the survey you just saved.</p>
+    <pre><code>ros2 launch nav2_bringup bringup_launch.py \
+  slam:=False map:="$HOME/maps/floor-1.yaml" params_file:="$HOME/nav2.yaml"</code></pre>
+
+    <p class="check"><strong>Navigation check.</strong> With drive disabled, set a short RViz goal and inspect the planned path and velocity output. After the raised-wheel tests, run a short supervised goal in a clear area with the physical disconnect within reach. Verify stopping on a controlled obstacle test, loss of scans, and loss of the velocity stream. Leave room for coasting.</p>
+  </section>
+
+  <section id="delivery">
+    <h2>5. Write the delivery program</h2>
+    <p>Start with a CLI that takes a pickup and destination name. Keep names and poses in YAML. Each record should include a floor and the pose’s x, y, and yaw in that floor’s <code>map</code> frame. Record the poses in RViz once localization works so the program and map use the same coordinates.</p>
+    <ol>
+      <li>Validate both destinations and check that localization and Nav2 are ready.</li>
+      <li>Send the pickup pose as a <code>NavigateToPose</code> action. Wait for the result without blocking cancellation or status updates.</li>
+      <li>After a successful arrival, wait for a pickup confirmation, then send the drop-off pose.</li>
+      <li>Report arrival only after the action succeeds. On failure or timeout, cancel the active goal and report which leg failed.</li>
+    </ol>
+    <p>Use <code>rclpy.action.ActionClient</code> with <code>nav2_msgs.action.NavigateToPose</code> and the <code>/navigate_to_pose</code> action name. Fill the goal’s <code>PoseStamped</code> with frame <code>map</code>, the current ROS timestamp, x and y, and a yaw quaternion with z = sin(yaw/2) and w = cos(yaw/2). Call <code>send_goal_async</code>, check whether the goal was accepted, then call <code>get_result_async</code> on the goal handle. Use <code>cancel_goal_async</code> on timeout or user cancellation and wait for a terminal result before starting another leg. You can test the YAML lookup and job transitions on a laptop with a fake action server that accepts, rejects, or delays goals. <a href="https://docs.nav2.org/jazzy/configuration_and_development/configuration_guide/core_servers/configuring_bt_navigator/">Nav2 action interfaces</a></p>
+
+    <p>For multiple floors, add a state machine with explicit states for staging, supervised boarding, riding while stopped, supervised exit, and relocalization. Ask an operator to confirm the car, threshold and destination floor. After exit, load the destination map, reset AMCL near the known elevator exit, and wait for valid localization before resuming. Use a CLI or button for early confirmations. Recorded prompts or local text-to-speech can announce the same requests later. Exercise cancellations, timeouts and ambiguous confirmations in a simulated ride before putting the robot in a real elevator.</p>
+  </section>
+</main>
+</body>
+</html>

@@ -117,7 +117,7 @@
         <thead><tr><th scope="col">Signal</th><th scope="col">Left wheel</th><th scope="col">Right wheel</th></tr></thead>
         <tbody>
           <tr><td>PWM throttle</td><td>D15 / GPIO15</td><td>RX2 / GPIO16</td></tr>
-          <tr><td>Rotation control</td><td>D4 / GPIO4</td><td>D23 / GPIO23</td></tr>
+          <tr><td>Rotation control</td><td>D23 / GPIO23</td><td>D4 / GPIO4</td></tr>
           <tr><td>Hall A</td><td>D19 / GPIO19</td><td>TX2 / GPIO17</td></tr>
           <tr><td>Hall B</td><td>D21 / GPIO21</td><td>D5 / GPIO5</td></tr>
           <tr><td>Hall C · RPM feedback</td><td>D22 / GPIO22</td><td>D18 / GPIO18</td></tr>
@@ -152,7 +152,7 @@
         </tbody>
       </table>
     </div>
-    <p class="notes">Check the labels and connector orientation on your board. Leave Speed Out, the separate 5 V out pins, Analog speed, Brake and Stop open for this setup.</p>
+    <p class="notes">Check the labels and connector orientation on your board. Leave Speed Out, the separate 5 V out pins, Analog speed and Stop open for this setup.</p>
   </section>
 
   <section id="interfaces" aria-labelledby="signals-title">
@@ -165,7 +165,8 @@
       <ul>
         <li>Keep the driver’s Hall 5 V and Hall GND with its motor harness. Branch only HA, HB and HC into the buffer. Place each 100 nF capacitor close to its buffer.</li>
         <li>Verify the controller’s PWM input accepts a 3.3 V signal and has no pull-up above 3.3 V before connecting it directly. Verify the 10 kΩ pull-down holds the wheel still through ESP32 reset.</li>
-        <li>Move the right Rotation control wire to D23 with motor power off. Leave the old D2 connection unplugged because GPIO2 is sampled during boot. Use the shown ground-switch circuit and verify your transistor’s physical pin order.</li>
+        <li>With motor power off, connect left Rotation to D23 and right Rotation to D4 through their ground-switch circuits. Leave D2 unplugged because GPIO2 is sampled during boot. Verify your transistor’s physical pin order.</li>
+        <li>Use a separate ground-switch transistor for each Brake terminal. Drive the left brake switch from D12 and the right from D13. GPIO12 must remain low at reset.</li>
       </ul>
     </div>
   </section>
@@ -219,12 +220,12 @@ const nets = {
   'l-b': ['left', 'Left Hall B', 'D21 / GPIO21'],
   'l-c': ['left', 'Left Hall C · RPM', 'D22 / GPIO22'],
   'l-pwm': ['left', 'Left PWM', 'D15 / GPIO15'],
-  'l-dir': ['left', 'Left direction', 'D4 / GPIO4'],
+  'l-dir': ['left', 'Left direction', 'D23 / GPIO23'],
   'r-a': ['right', 'Right Hall A', 'TX2 / GPIO17'],
   'r-b': ['right', 'Right Hall B', 'D5 / GPIO5'],
   'r-c': ['right', 'Right Hall C · RPM', 'D18 / GPIO18'],
   'r-pwm': ['right', 'Right PWM', 'RX2 / GPIO16'],
-  'r-dir': ['right', 'Right direction', 'D23 / GPIO23'],
+  'r-dir': ['right', 'Right direction', 'D4 / GPIO4'],
   '3v3': ['power', '3V3 · both Hall buffers'],
   'gnd': ['ground', 'Common signal ground'],
   'bat+': ['power', 'Battery positive after cutoff'],
@@ -254,8 +255,8 @@ function svg(id,height,label,contents) {
 
 function esp32() {
   const bank = {
-    D23:'r-dir', D22:'l-c', D21:'l-b', D19:'l-a', D18:'r-c', D5:'r-b', TX2:'r-a',
-    RX2:'r-pwm', D4:'l-dir', D15:'l-pwm', GND:'gnd', '3V3':'3v3'
+    D23:'l-dir', D22:'l-c', D21:'l-b', D19:'l-a', D18:'r-c', D5:'r-b', TX2:'r-a',
+    RX2:'r-pwm', D4:'r-dir', D15:'l-pwm', GND:'gnd', '3V3':'3v3'
   };
   const left = ['EN','VP','VN','D34','D35','D32','D33','D25','D26','D27','D14','D12','D13','GND','VIN'];
   const right = ['D23','D22','TX0','RX0','D21','D19','D18','D5','TX2','RX2','D4','D2','D15','GND','3V3'];

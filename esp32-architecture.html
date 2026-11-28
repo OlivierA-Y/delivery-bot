@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>HotelBot · ESP32 and web controller architecture</title>
+<style>
+  :root{--ink:#1d2927;--muted:#4c5e59;--paper:#f7f6f0;--rule:#ced5ca;--accent:#126657;--accent-bg:#dcebe3;--mono:ui-monospace,SFMono-Regular,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);background:var(--paper);font:16px/1.55 system-ui,sans-serif}
+  main{width:min(1280px,100% - 64px);margin-inline:auto;padding:28px 0 64px}
+  a{color:var(--accent);text-underline-offset:3px}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:13px;border-bottom:1px solid var(--rule)}
+  .top a{font-weight:700;color:var(--ink);text-decoration:none}
+  .meta{font:12px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted)}
+  h1{margin:29px 0 5px;font-size:clamp(42px,6vw,80px);letter-spacing:-.065em;line-height:1.02;font-weight:730}
+  .intro{margin:0 0 22px;max-width:68ch;color:var(--muted);font-size:clamp(15px,1.65vw,19px)}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(325px,.47fr);border:1px solid var(--rule);background:white}
+  .iso-plate{margin:0;min-width:0;background:#eff2e9;display:flex;flex-direction:column;justify-content:space-between}
+  .plate-top,.plate-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;padding:14px 18px}
+  .plate-top{border-bottom:1px solid #d8ded1}
+  .plate-bottom{border-top:1px solid #d8ded1;color:var(--muted);font-size:13px}
+  .plate-bottom strong{color:var(--accent);font-weight:700}
+  svg{max-width:100%;height:auto;display:block}
+  .bench{aspect-ratio:760/440}
+  .shadow{fill:#34453b;opacity:.11}
+  .device{stroke:#384741;stroke-width:1;stroke-linejoin:round}
+  .dim{opacity:.86}
+  .art-label{fill:#253732;font:650 14px system-ui,sans-serif}
+  .art-sub{fill:#4a5b54;font:11px var(--mono)}
+  .wire{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-width:2.2;stroke:#87968a}
+  .motion-path{display:none;stroke:var(--accent);stroke-width:3;stroke-dasharray:4 9;animation:flow 1.3s linear infinite;animation-play-state:paused}
+  .iso-plate.in-view .motion-path{animation-play-state:running}
+  #diagram[data-route="to"] #to-board,#diagram[data-route="from"] #from-board,
+  #diagram[data-route="to"] #to-wheels,#diagram[data-route="from"] #from-wheels,
+  #diagram[data-route="update"] #to-board{display:block}
+  @keyframes flow{to{stroke-dashoffset:-26}}
+  .inspector{padding:18px;min-width:0;border-left:1px solid var(--rule);display:flex;flex-direction:column;gap:15px}
+  h2,h3,p{margin-top:0}
+  h2{font-size:22px;letter-spacing:-.035em;line-height:1.2;margin-bottom:10px}
+  h3{font-size:18px;letter-spacing:-.02em;line-height:1.3;margin-bottom:7px}
+  .trace-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  button{min-height:39px;font:650 13px/1.2 system-ui,sans-serif;border:1px solid var(--rule);background:#f7f8f3;color:var(--ink);cursor:pointer;padding:7px 4px}
+  button[aria-pressed="true"]{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .trace{min-width:0}
+  .trace p{font-size:14px;color:var(--muted);margin:8px 0 11px;min-height:63px}
+  #route{font:12px/1.4 var(--mono);color:var(--accent);overflow-wrap:anywhere}
+  pre{margin:0;background:#162b26;color:#e5f4eb;padding:13px;font:12px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;min-height:94px}
+  .timing{display:grid;grid-template-columns:repeat(4,1fr);margin:0 0 32px;border-bottom:1px solid var(--rule)}
+  .timing div{padding:16px 12px 15px 0}
+  .timing div+div{border-left:1px solid var(--rule);padding-left:17px}
+  .timing dt{color:var(--muted);font-size:13px}
+  .timing dd{margin:0;font-size:clamp(20px,3vw,31px);font-weight:700;letter-spacing:-.055em}
+  .detail{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  details{border-bottom:1px solid var(--rule);padding:10px 0}
+  summary{cursor:pointer;font-weight:650}
+  details p{margin:7px 0 0;color:var(--muted);font-size:14px}
+  code{font: .91em var(--mono);overflow-wrap:anywhere}
+  footer{border-top:1px solid var(--rule);margin-top:27px;padding-top:11px;color:var(--muted);font-size:13px}
+  @media (max-width:870px){.layout{grid-template-columns:1fr}.inspector{border-left:0;border-top:1px solid var(--rule)}.trace p{min-height:0}}
+  @media (max-width:540px){main{width:calc(100% - 30px);padding:15px 0 36px}.detail{grid-template-columns:1fr;gap:18px}.timing{grid-template-columns:1fr 1fr}.timing div:nth-child(3){border-left:0;padding-left:0}.timing div:nth-child(n+3){border-top:1px solid var(--rule)}.plate-top,.plate-bottom{padding:9px 10px}.plate-top .meta{font-size:11px}.inspector{padding:13px}.art-label{font-size:17px}.art-sub{font-size:14px}}
+  @media (prefers-reduced-motion:reduce){.motion-path{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><a href="documentation.html">HotelBot documentation</a><span class="meta">ESP32 DEVKIT V1</span></header>
+  <h1>Browser to wheel</h1>
+  <p class="intro">The ESP32 serves the controller page, translates commands into wheel-speed targets, and closes both speed loops with Hall feedback.</p>
+
+  <section class="layout" aria-label="Interactive message flow">
+    <figure class="iso-plate">
+      <div class="plate-top meta"><span>DRIVE CONTROLLER</span><span>HOTELBOT HOTSPOT / EDUROAM</span></div>
+      <svg class="bench" id="diagram" data-route="to" viewBox="0 0 760 440" role="img" aria-labelledby="scene-title scene-description">
+        <title id="scene-title">HotelBot browser, ESP32, and two wheel assemblies</title>
+        <desc id="scene-description">A phone sends commands to the ESP32 over Wi-Fi. The ESP32 supplies PWM, direction, and brake signals to separate left and right motor drivers. Hall C feedback returns from each wheel to the ESP32.</desc>
+        <defs>
+          <linearGradient id="bench-shade" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#edf1e7"/><stop offset="1" stop-color="#d0dacb"/></linearGradient>
+          <linearGradient id="screen" x2="0.9" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#f4faf4"/><stop offset="1" stop-color="#dceae0"/></linearGradient>
+          <pattern id="mesh" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 8 8 0" stroke="#bac7b9" stroke-width=".65"/></pattern>
+          <pattern id="pin-row" width="10" height="8" patternUnits="userSpaceOnUse"><rect x="2" y="2" width="5" height="4" rx="1" fill="#ceb884" stroke="#404a3d" stroke-width=".6"/></pattern>
+          <g id="screw"><circle r="3.4" fill="#d6dcd3" stroke="#59665a" stroke-width=".75"/><path d="M-2 0h4" stroke="#6b786b" stroke-width=".85"/></g>
+          <g id="driver">
+            <path d="M4 38 12 44 106 44 106 38Z" fill="#677665" class="device"/>
+            <path d="M4 13 95 13 106 22 106 38 4 38Z" fill="#424d47" class="device"/>
+            <path d="M4 13 95 13 106 22 15 22Z" fill="#7b8881" class="device"/>
+            <path d="M15 22v16h91V22" fill="#59675e" class="device"/>
+            <g fill="#a7b4a9" stroke="#34423e" stroke-width=".7">
+              <path d="M18 23 12 18 88 18 94 23 94 29 18 29Z"/><path d="M18 19 12 14 88 14 94 19 94 24 18 24Z"/>
+              <path d="M18 15 12 10 88 10 94 15 94 20 18 20Z"/><path d="M18 11 12 6 88 6 94 11 94 16 18 16Z"/>
+            </g>
+            <path d="M97 26h13v9H97z" fill="#c2c8b3" stroke="#455744" stroke-width=".8"/>
+            <path d="M102 27v7m4-7v7" stroke="#647359" stroke-width="1"/>
+            <circle cx="10" cy="32" r="2" fill="#d5cead"/>
+          </g>
+          <g id="wheel">
+            <path d="M-17-45h13C12-45 26-25 26 0S12 45-4 45h-13Z" fill="#293330" class="device"/>
+            <ellipse cx="-16" rx="25" ry="45" fill="#414c46" class="device"/>
+            <ellipse cx="-16" rx="18.5" ry="35" fill="#74827b" class="device"/>
+            <ellipse cx="-16" rx="14" ry="29" fill="#adb9af" class="device"/>
+            <ellipse cx="-16" rx="7" ry="15" fill="#d2d9cf" class="device"/>
+            <ellipse cx="-17" rx="3" ry="7" fill="#526659"/>
+            <path d="M-11-41H4m-5 5h17m-9 6h14m-9 7h13m-8 8h11m-7 8h10m-10 8h10m-11 8h10m-13 8h11m-16 8h12m-18 7h13m-20 6h13" stroke="#707d76" stroke-width="1.1"/>
+            <path d="M-23-35q-15 32-3 56m14 10q12-12 13-28" stroke="#919e91" fill="none" opacity=".6"/>
+            <g fill="#526659"><circle cx="-16" cy="-22" r="1.6"/><circle cx="-16" cy="22" r="1.6"/><circle cx="-26" cy="0" r="1.6"/><circle cx="-6" cy="0" r="1.6"/></g>
+          </g>
+        </defs>
+
+        <!-- Work surface, recessed rails, and bench hardware. -->
+        <ellipse cx="391" cy="356" rx="315" ry="60" class="shadow"/>
+        <path d="M53 190 407 72 712 215 373 386 53 209Z" fill="#7f9380" class="device"/>
+        <path d="M53 190 373 370 712 204 712 221 373 389 53 208Z" fill="#a0b09c" class="device"/>
+        <path d="M53 190 409 68 712 204 373 371Z" fill="url(#bench-shade)" class="device"/>
+        <path d="M53 190 373 370 373 387 53 208Z" fill="#7d947f" class="device"/>
+        <path d="M68 191 412 77 692 203 371 359Z" fill="none" stroke="#a3b2a0" stroke-width="1"/>
+        <path d="M264 289 476 192 513 212 302 310Z" fill="url(#mesh)" stroke="#aab9a9"/>
+        <path d="M325 323 569 210 578 215 333 329Z" fill="#a6b7a7" stroke="#748c7a" stroke-width=".6"/>
+        <path d="M91 192 251 281M96 190 256 278M345 349 370 364 475 313" fill="none" stroke="#a5b4a3" stroke-width="1"/>
+        <use href="#screw" x="73" y="191"/><use href="#screw" x="412" y="80"/><use href="#screw" x="682" y="203"/>
+        <use href="#screw" x="372" y="356"/><use href="#screw" x="308" y="308"/><use href="#screw" x="500" y="214"/>
+
+        <!-- Signal paths land at the edges of devices. -->
+        <g class="wire">
+          <path d="M213 188 C251 152 288 159 326 188"/>
+          <path d="M326 202 C284 175 252 177 213 202"/>
+          <path d="M443 209 C480 198 482 162 528 156"/>
+          <path d="M448 221 C504 228 457 266 528 277"/>
+          <path d="M642 140 C624 108 552 107 510 124 S481 172 444 191"/>
+          <path d="M642 279 C611 326 524 338 474 296 S460 253 437 242"/>
+          <path d="M604 158 C623 155 622 145 644 150" stroke="#53665b" stroke-width="3.5"/>
+          <path d="M604 280 C622 285 625 288 643 285" stroke="#53665b" stroke-width="3.5"/>
+        </g>
+        <g class="wire motion-path" id="to-board"><path d="M213 188 C251 152 288 159 326 188"/></g>
+        <g class="wire motion-path" id="from-board"><path d="M326 202 C284 175 252 177 213 202"/></g>
+        <g class="wire motion-path" id="to-wheels"><path d="M443 209 C480 198 482 162 528 156"/><path d="M448 221 C504 228 457 266 528 277"/></g>
+        <g class="wire motion-path" id="from-wheels"><path d="M642 140 C624 108 552 107 510 124 S481 172 444 191"/><path d="M642 279 C611 326 524 338 474 296 S460 253 437 242"/></g>
+
+        <!-- Phone, dev board, two motor drivers, and the wheel hubs. -->
+        <ellipse cx="155" cy="248" rx="64" ry="25" class="shadow"/>
+        <g transform="translate(88 92) rotate(9 59 88)">
+          <rect x="3" y="4" width="121" height="176" rx="17" fill="#414f48" class="device"/>
+          <rect width="119" height="174" rx="16" fill="#66786d" class="device"/>
+          <rect x="5" y="4" width="109" height="165" rx="13" fill="#243a32" class="device"/>
+          <rect x="10" y="15" width="99" height="144" rx="9" fill="url(#screen)" class="device"/>
+          <rect x="47" y="8" width="24" height="3" rx="1.5" fill="#9eb1a7"/>
+          <rect x="23" y="30" width="73" height="15" rx="2" fill="#c5d4c6"/>
+          <path d="M27 38h24m4 0h10" stroke="#5d7768" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="59" cy="91" r="30" fill="#d7e4d5" stroke="#c1d1c1"/>
+          <circle cx="59" cy="91" r="23" fill="#cbdacf"/>
+          <path d="M59 65v6m0 40v6m-26-26h6m40 0h6" stroke="#729486" stroke-width="1.1"/>
+          <circle cx="64" cy="84" r="10" fill="#326454" stroke="#234c41"/>
+          <path d="M20 145h78m-75-5 13-6 13 2 12-6 13 3 19-8" fill="none" stroke="#4d7364" stroke-width="1.4"/>
+          <rect x="117" y="42" width="3" height="17" rx="1" fill="#a3b1aa"/><rect x="117" y="64" width="3" height="12" rx="1" fill="#a3b1aa"/>
+        </g>
+        <g transform="translate(318 174) matrix(.92 .22 -.32 .68 0 0)">
+          <rect x="2" y="7" width="151" height="76" rx="5" fill="#57756a" class="device"/>
+          <rect width="151" height="76" rx="5" fill="#274e43" class="device"/>
+          <rect x="4" y="5" width="142" height="66" rx="3" fill="none" stroke="#638977"/>
+          <rect x="10" y="7" width="130" height="9" fill="url(#pin-row)"/>
+          <rect x="10" y="60" width="130" height="9" fill="url(#pin-row)"/>
+          <path d="M36 18v13h18m-7 21v6m55-38v7m28 15v11h-19m-74-31v30" fill="none" stroke="#729a86" stroke-width="1"/>
+          <rect x="67" y="24" width="63" height="29" rx="2" fill="#a1aaa6" class="device"/>
+          <rect x="74" y="27" width="50" height="21" rx="2" fill="#c5cec7" stroke="#838e85"/>
+          <path d="M115 32h7v7h-5v5h5" fill="none" stroke="#8e9c91" stroke-width="1"/>
+          <text x="80" y="40" font-family="monospace" font-size="8" fill="#394c41">ESP32</text>
+          <rect x="42" y="33" width="13" height="13" rx="1" fill="#172e28" stroke="#9cb6a2"/>
+          <rect x="25" y="36" width="8" height="5" fill="#d3c2a1"/>
+          <path d="M-7 29h24v20H-7z" fill="#aebbb4" class="device"/><path d="M-7 34h12v10H-7z" fill="#3e5048" class="device"/>
+          <circle cx="19" cy="55" r="2" fill="#c4e4cd"/><circle cx="25" cy="55" r="2" fill="#97d0ae"/>
+          <use href="#screw" x="5" y="6"/><use href="#screw" x="146" y="70"/>
+        </g>
+        <use href="#driver" x="516" y="121" class="dim"/>
+        <use href="#driver" x="516" y="242" class="dim"/>
+        <use href="#wheel" x="676" y="137"/>
+        <use href="#wheel" x="676" y="265"/>
+
+        <g fill="#49766a" stroke="#e0e9dc" stroke-width="1">
+          <circle cx="213" cy="188" r="3"/><circle cx="213" cy="202" r="3"/>
+          <circle cx="326" cy="188" r="3"/><circle cx="326" cy="202" r="3"/>
+          <circle cx="443" cy="209" r="3"/><circle cx="448" cy="221" r="3"/>
+          <circle cx="444" cy="191" r="3"/><circle cx="437" cy="242" r="3"/>
+        </g>
+        <g>
+          <text x="84" y="300" class="art-label">Phone browser</text>
+          <text x="84" y="316" class="art-sub">Joystick · plots</text>
+          <text x="241" y="136" class="art-label">Wi-Fi</text>
+          <text x="241" y="152" class="art-sub">HTTP + WebSocket</text>
+          <text x="327" y="276" class="art-label">Drive ESP32</text>
+          <text x="327" y="292" class="art-sub">Web server · 2 PID loops</text>
+          <text x="526" y="186" class="art-label">Left wheel</text>
+          <text x="526" y="307" class="art-label">Right wheel</text>
+        </g>
+      </svg>
+      <figcaption class="plate-bottom"><span>ESP32 → drivers <b>PWM · direction · brake</b></span><span>wheels → ESP32 <b>Hall C</b></span><strong id="caption-mode" data-readout>Drive command</strong></figcaption>
+    </figure>
+
+    <aside class="inspector" aria-labelledby="message-heading">
+      <div>
+        <h2 id="message-heading">Trace a message</h2>
+        <div class="trace-buttons" role="group" aria-label="Message example">
+          <button type="button" data-trace="open" aria-pressed="false">Connect</button>
+          <button type="button" data-trace="drive" aria-pressed="true">Drive</button>
+          <button type="button" data-trace="feedback" aria-pressed="false">Telemetry</button>
+          <button type="button" data-trace="brake" aria-pressed="false">Release</button>
+          <button type="button" data-trace="tune" aria-pressed="false">Tune PID</button>
+          <button type="button" data-trace="ota" aria-pressed="false">OTA</button>
+        </div>
+      </div>
+      <div class="trace" aria-live="polite">
+        <div id="route">BROWSER → ESP32 · WS /motion</div>
+        <h3 id="trace-title">Send a wheel-speed command</h3>
+        <p id="trace-summary">A joystick frame carries its two axes and the RPM cap. The ESP32 mixes them into signed left and right wheel targets.</p>
+        <pre id="payload">session=12345&amp;seq=17&amp;x=115&amp;y=175&amp;rpm=80&amp;clear=0</pre>
+      </div>
+      <noscript>The illustrated drive example and protocol reference are available below.</noscript>
+    </aside>
+  </section>
+
+  <dl class="timing" aria-label="Control timings">
+    <div><dt>Wheel loop</dt><dd>~10 ms</dd></div>
+    <div><dt>Held drive command</dt><dd>75 ms</dd></div>
+    <div><dt>Idle status poll</dt><dd>125 ms</dd></div>
+    <div><dt>Motion timeout</dt><dd>350 ms</dd></div>
+  </dl>
+
+  <div class="detail">
+    <section aria-labelledby="protocol">
+      <h2 id="protocol">Browser protocol</h2>
+      <details open><summary>Session and drive fields</summary><p>The ESP32 serves the page at <code>192.168.4.1</code> on its hotspot and at its assigned IP on eduroam. <code>GET /</code> serves the page. <code>POST /control</code> with <code>X-Drive: 1</code> opens one active session and returns its token. WebSocket <code>/motion</code> carries URL-encoded text with that token and a strictly increasing <code>seq</code>. <code>x</code> and <code>y</code> range from 0 to 200 with 100 at center. High <code>x</code> means right and high <code>y</code> means forward.</p></details>
+      <details><summary>Direct RPM and action codes</summary><p>Add <code>direct=1</code>, send <code>x=100&amp;y=100</code>, and encode each signed wheel speed as RPM plus 240. <code>left=260&amp;right=220</code> means +20 and −20 RPM. <code>clear=0</code> drives or coasts. <code>clear=1</code> stops or clears a Hall fault. <code>clear=2</code> enables Hall override. <code>clear=3</code> requests joystick-release braking.</p></details>
+      <details><summary>HTTP fallback, tuning, and OTA</summary><p><code>POST /drive</code> accepts the same drive fields as query parameters. <code>POST /tune</code> accepts <code>session</code>, <code>side=l|r</code>, and <code>kp</code>, <code>ki</code>, <code>kd</code>. <code>side=s</code> saves both sets of applied gains. <code>POST /update</code> comes from the OTA tool and carries the raw application image plus hash and authentication headers.</p></details>
+    </section>
+    <section aria-labelledby="signals">
+      <h2 id="signals">Telemetry and wheel I/O</h2>
+      <details open><summary>Status snapshot</summary><p><code>left</code> and <code>right</code> are estimated RPM. <code>leftTarget</code> and <code>rightTarget</code> are commanded RPM. The browser computes error as target minus estimate. <code>leftPid</code> and <code>rightPid</code> each contain <code>[P, I, D, throttle]</code>. P, I, and D are PWM percentage points. Throttle is applied PWM percent.</p></details>
+      <details><summary>Diagnostics and tuning result</summary><p><code>ms</code> is the sample clock. <code>boot</code> and <code>brownout</code> identify restarts. <code>ready</code>, <code>calibrate</code>, <code>fault</code>, <code>override</code>, <code>bench</code>, and <code>max</code> describe drive state. The fault bits are 1 for left Hall, 2 for right Hall, and 4 for PWM. <code>rejection</code> describes a rejected command. <code>leftGains</code> and <code>rightGains</code> contain <code>[Kp, Ki, Kd]</code>. <code>tuneBusy</code>, <code>tuneId</code>, and <code>tuneOk</code> report tuning progress.</p></details>
+      <details><summary>ESP32 pins and motor signals</summary><p>Left wheel PWM / direction / brake / Hall C are <code>GPIO15 / 4 / 12 / 22</code>. Right wheel uses <code>GPIO16 / 23 / 13 / 18</code>. PWM runs at 490 Hz. The ESP32 estimates speed from the Hall signal and runs two independent PID loops. After 350 ms without a fresh motion command it cuts throttle.</p></details>
+    </section>
+  </div>
+  <footer>Implementation <a href="firmware/drive-controller/src/main.cpp">ESP32 firmware</a> · <a href="firmware/drive-controller/src/controller.h">controller page</a> · <a href="firmware/drive-controller/README.md">setup guide</a></footer>
+</main>
+<script>
+  const traces = {
+    open: {direction:'update', mode:'Open control session', route:'BROWSER → ESP32 · HTTP', title:'Load the page and take control', summary:'The ESP32 serves the page. A second request returns the sole active control token and an initial telemetry snapshot.', payload:'GET /\n\nPOST /control\nX-Drive: 1\n\n← {"session":12345,"ready":true}'},
+    drive: {direction:'to', mode:'Drive command', route:'BROWSER → ESP32 · WS /motion', title:'Send a wheel-speed command', summary:'A joystick frame carries its two axes and the RPM cap. The ESP32 mixes them into signed left and right wheel targets.', payload:'session=12345&seq=17&x=115&y=175&rpm=80&clear=0'},
+    feedback: {direction:'from', mode:'Hall feedback → status', route:'ESP32 → BROWSER · JSON', title:'Return measured speed and throttle', summary:'A WebSocket command returns a status snapshot. At idle, the browser reads the same fields through GET /status.', payload:'{\n  "ms":48210, "left":21.3, "right":18.7,\n  "leftTarget":20, "rightTarget":20,\n  "leftPid":[-0.12,4.4,0,4.3],\n  "rightPid":[0.12,4.1,0,4.3],\n  "ready":true, "fault":0\n}'},
+    brake: {direction:'to', mode:'Joystick-release brake', route:'BROWSER → ESP32 · WS /motion', title:'Brake on joystick release', summary:'The browser sends centered axes and action 3. The ESP32 cuts PWM, then pulses the two brake switches for up to 500 ms.', payload:'session=12345&seq=18&x=100&y=100&rpm=80&clear=3'},
+    tune: {direction:'update', mode:'Apply gains', route:'BROWSER → ESP32 · HTTP', title:'Tune a stationary wheel', summary:'Apply gains for one wheel. The response contains a request ID. Telemetry confirms the result with tuneId and tuneOk.', payload:'POST /tune?session=12345&side=l&kp=0.001&ki=0.005&kd=0\nX-Drive: 1\n\n← HTTP 202 {"id":7}'},
+    ota: {direction:'update', mode:'Authenticated update', route:'OTA TOOL → ESP32 · HTTP', title:'Upload an authenticated firmware image', summary:'The ESP32 checks the request, keeps the drive idle, verifies the image in the other app slot, then reboots.', payload:'POST /update\nX-Firmware-SHA256: <image digest>\nX-Update-Auth: <keyed tag>\n\n<raw firmware.bin>'}
+  };
+  const controls = [...document.querySelectorAll('[data-trace]')];
+  const diagram = document.querySelector('#diagram');
+  const plate = document.querySelector('.iso-plate');
+  const fields = {
+    mode: document.querySelector('#caption-mode'),
+    route: document.querySelector('#route'),
+    title: document.querySelector('#trace-title'),
+    summary: document.querySelector('#trace-summary'),
+    payload: document.querySelector('#payload')
+  };
+  for (const button of controls) {
+    button.addEventListener('click', () => {
+      const step = traces[button.dataset.trace];
+      for (const choice of controls) choice.setAttribute('aria-pressed', choice === button);
+      for (const [key, field] of Object.entries(fields)) field.textContent = step[key];
+      diagram.dataset.route = step.direction;
+    });
+  }
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => plate.classList.toggle('in-view', entry.isIntersecting)).observe(plate);
+  }
+</script>
+</body>
+</html>
